@@ -1,0 +1,35 @@
+BLEU score without retraining: 12.3924
+Epoch: 1, Train loss: 1.650, Val loss: 1.977, BLEU: 32.4670 Epoch time = 21.052s
+Best model updated
+Epoch: 2, Train loss: 1.253, Val loss: 2.018, BLEU: 31.6859 Epoch time = 23.475s
+Epoch: 3, Train loss: 1.075, Val loss: 2.043, BLEU: 32.9370 Epoch time = 23.444s
+Best model updated
+Epoch: 4, Train loss: 0.959, Val loss: 2.083, BLEU: 33.9417 Epoch time = 21.458s
+Best model updated
+Epoch: 5, Train loss: 0.852, Val loss: 2.135, BLEU: 31.9877 Epoch time = 21.047s
+Epoch: 6, Train loss: 0.761, Val loss: 2.207, BLEU: 31.8768 Epoch time = 21.054s
+Epoch: 7, Train loss: 0.687, Val loss: 2.353, BLEU: 29.7551 Epoch time = 21.116s
+Epoch: 8, Train loss: 0.623, Val loss: 2.356, BLEU: 29.9364 Epoch time = 21.020s
+Epoch: 9, Train loss: 0.556, Val loss: 2.360, BLEU: 32.0137 Epoch time = 21.071s
+Epoch: 10, Train loss: 0.494, Val loss: 2.450, BLEU: 32.3480 Epoch time = 21.041s
+Epoch: 11, Train loss: 0.438, Val loss: 2.486, BLEU: 31.8997 Epoch time = 21.034s
+Epoch: 12, Train loss: 0.387, Val loss: 2.565, BLEU: 31.7780 Epoch time = 22.810s
+Epoch: 13, Train loss: 0.341, Val loss: 2.621, BLEU: 31.7364 Epoch time = 23.412s
+Epoch: 14, Train loss: 0.298, Val loss: 2.697, BLEU: 31.1639 Epoch time = 23.432s
+Epoch: 15, Train loss: 0.260, Val loss: 2.718, BLEU: 30.8483 Epoch time = 21.945s
+Epoch: 16, Train loss: 0.228, Val loss: 2.804, BLEU: 31.3256 Epoch time = 20.993s
+Epoch: 17, Train loss: 0.201, Val loss: 2.787, BLEU: 30.6068 Epoch time = 21.042s
+Epoch: 18, Train loss: 0.175, Val loss: 2.815, BLEU: 29.8068 Epoch time = 21.040s
+Epoch: 19, Train loss: 0.148, Val loss: 2.927, BLEU: 29.9313 Epoch time = 21.061s
+Epoch: 20, Train loss: 0.124, Val loss: 2.964, BLEU: 30.6449 Epoch time = 21.044s
+Epoch: 21, Train loss: 0.108, Val loss: 3.078, BLEU: 29.6821 Epoch time = 21.110s
+Epoch: 22, Train loss: 0.091, Val loss: 3.115, BLEU: 29.1620 Epoch time = 21.056s
+Epoch: 23, Train loss: 0.075, Val loss: 3.077, BLEU: 29.9142 Epoch time = 21.043s
+Epoch: 24, Train loss: 0.062, Val loss: 3.160, BLEU: 31.4135 Epoch time = 21.040s
+Epoch: 25, Train loss: 0.051, Val loss: 3.230, BLEU: 30.7481 Epoch time = 21.040s
+Epoch: 26, Train loss: 0.042, Val loss: 3.243, BLEU: 31.8973 Epoch time = 21.071s
+Epoch: 27, Train loss: 0.037, Val loss: 3.383, BLEU: 31.4777 Epoch time = 21.058s
+Epoch: 28, Train loss: 0.031, Val loss: 3.418, BLEU: 30.8502 Epoch time = 21.061s
+Epoch: 29, Train loss: 0.025, Val loss: 3.420, BLEU: 29.3414 Epoch time = 21.071s
+Epoch: 30, Train loss: 0.022, Val loss: 3.453, BLEU: 29.8007 Epoch time = 22.016s
+Best model at Epoch: 4, BLEU: 33.942

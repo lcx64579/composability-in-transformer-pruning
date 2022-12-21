@@ -136,17 +136,6 @@ def evaluate_BLEU(transformer):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
-    def create_mask(src, tgt):
-        src_seq_len = src.shape[0]
-        tgt_seq_len = tgt.shape[0]
-
-        tgt_mask = generate_square_subsequent_mask(tgt_seq_len)
-        src_mask = torch.zeros((src_seq_len, src_seq_len), device=DEVICE).type(torch.bool)
-
-        src_padding_mask = (src == PAD_IDX).transpose(0, 1)
-        tgt_padding_mask = (tgt == PAD_IDX).transpose(0, 1)
-        return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
-
     torch.manual_seed(0)
 
     # helper function to club together sequential operations
@@ -226,7 +215,7 @@ def evaluate_BLEU(transformer):
         candidate = candidate.split(' ')
         references.append([tgt])
         candidates.append(candidate)
-        print(f"\rEvaluating: {i:5}/{dataset_length}", end="")
+        print(f"\rEvaluating: {(i+1):5}/{dataset_length}", end="")
 
     print("\r", end="")
 

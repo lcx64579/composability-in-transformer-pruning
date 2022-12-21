@@ -1,9 +1,9 @@
 {
     "transformer.encoder.layers.0.self_attn": [
-        0.2
+        0.2, 0.5
     ],
     "transformer.encoder.layers.0.linear1": [
-        0.2
+        0.2, 0.5
     ],
     "transformer.encoder.layers.0.linear2": [
         0.2

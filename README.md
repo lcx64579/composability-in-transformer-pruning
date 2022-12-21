@@ -24,8 +24,8 @@ python evaluate.py model_file
 
 ## Modules
 
-- `train_origin.py`: Trains a default Transformer that can be used in machine translation on Multi30k dataset, which contains Ger-Eng sentence pairs.
+- `train_origin.py`: Trains a default Transformer that can be used in machine translation on Multi30k training set, which contains Ger-Eng sentence pairs.
 - `prune.py`: Block-level pruning. Will read config from `conf_prune.json`.
 - `finetune.py`: Block-level finetuning.
 - `retrain.py`: Model-level finetuning.
-- `evaluate.py`: Evaluates a model based on BLEU score on Multi30k dataset.
+- `evaluate.py`: Evaluates a model based on BLEU score on Multi30k validation set.

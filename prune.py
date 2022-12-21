@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torch.nn.utils.prune as prune
 from torchtext.datasets import Multi30k
 from torchtext.vocab import build_vocab_from_iterator
@@ -124,7 +122,7 @@ conf = json.load(conf_file)
 # Pruning
 def prune_linear(name: str, layer: nn.Linear, ratio: float) -> nn.Linear:
     r"""
-    剪枝全连接层。按 L1-Unstructured 方法剪枝。
+    剪枝全连接层。按 L1-Unstructured 方法剪枝。TODO: 将来可以通过参数传入自定义剪枝方法。
 
     Args:
         `name`: 层名，用于输出
@@ -136,7 +134,7 @@ def prune_linear(name: str, layer: nn.Linear, ratio: float) -> nn.Linear:
     total = layer.weight.data.numel()       # 统计用：剪枝前总参数量
     prune.l1_unstructured(layer, 'weight', amount=1.0-ratio)    # 剪枝只有这一行。PyTorch API
     # mask = layer.weight.data.abs().clone().gt(0).float().cuda()  # 统计用
-    # mask = layer.weight.data.abs().gt(0)  # 统计用
+    # mask = layer.weight.data.abs().gt(0)  # 统计用 - alternative
     # total_nonzero = torch.sum(mask).int().item()                # 统计用：剪枝后剩余参数量
     total_nonzero = layer.weight.data.nonzero().shape[0]
     # prune.remove(layer, 'weight')           # 应用剪枝。但留着mask可以在训练时对梯度自动应用mask

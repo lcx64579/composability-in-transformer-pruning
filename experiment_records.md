@@ -21,13 +21,13 @@ Origin用朴素方法剪枝并微调 称为Baseline_pruned
 |2022-10-19|finetuned_all_0_8_epoch4.pth|Finetuned|MHA0.75, Linear0.8|20|34.3266|恰在epoch4|
 |-|-|-|-|-|-|-|
 |2022-10-19|pruned_all_0_2.pth|Pruned|MHA0.25, Linear0.2|-|9.4030|注意0.2是指剪掉了80%|
-|2022-10-19|finetuned_all_0_2_epoch11.pth|Finetuned|MHA0.25, Linear0.2|11/20|12.3924|总计20epoch，在11处最好。这个是11|
+|2022-10-19|finetuned_all_0_2_epoch11.pth|Finetuned|MHA0.25, Linear0.2|11/20|12.3924|总计20epoch，在11处最好（PS：什么最好？是BLEU还是valloss？）。这个是11|
 |2022-10-19|retrained_all_0_2_epoch11_epoch10.pth|Retrained|MHA0.25, Linear0.2|11/20 + 10|34.4641|训练效果明显，虽然val loss还是没降[^1]|
 |2022-10-19|retrained_all_0_2_epoch11_epoch30.pth|Retrained|MHA0.25, Linear0.2|11/20 + 30|32.4826|越retrain，BLEU越下降|
 |2022-10-19|retrained_all_0_2_epoch11_epoch1.pth|Retrained|MHA0.25, Linear0.2|11/20 + 1|32.4670|-|
 |2022-10-19|retrained_all_0_2_epoch11_epoch3.pth|Retrained|MHA0.25, Linear0.2|11/20 + 3|32.9233|最佳val loss，但并不是最佳BLEU|
 |2022-11-16|retrained_all_0_2_epoch11_epoch4.pth|Retrained|MHA0.25, Linear0.2|11/20 + 4|33.9417|在4处最好。后面一直在29～32浮动。不再跟踪val loss|
-|2022-11-16|pruned_all_0_2.pth -> finetuned_all_0_2_epoch999.pth|Retrained|MHA0.25, Linear0.2|0 + 4|33.5361|没有finetune，改了个名字当做finetune过了|
+|2022-11-16|pruned_all_0_2.pth -> retrained_all_0_2_epoch999.pth|Retrained|MHA0.25, Linear0.2|0 + 4|33.5361|没有finetune，改了个名字当做finetune过了|
 
 [^1]: 剪枝率0.2（剪掉80%）的模型在retrain时，最初3个epochs有少许的val loss下降，然后上升，但幅度不大。其他的剪枝率均直接开始上升，严重过拟合。
 

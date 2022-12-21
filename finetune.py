@@ -15,6 +15,7 @@ from utils import set_module
 from parallel_block import *
 import argparse
 import os
+from evaluate_function import evaluate_BLEU
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--epochs", type=int, required=True)
@@ -239,8 +240,10 @@ for name_pruned in pruned_modules:
 optimizer = torch.optim.Adam(param_to_finetune, lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 lossfn_block = nn.MSELoss()     # 剪枝块与原块之间的loss。因为形式与输出不同，所以也不能用同样的Loss函数。
 train_loss_block_list = []
-eval_loss_list = []
-best_val = 999999999.0
+# eval_loss_list = []
+eval_BLEU_list = []
+# best_val = 999999999.0
+best_BLEU = 0
 best_epoch = 0
 
 for epoch in range(1, NUM_EPOCHS+1):
@@ -293,33 +296,57 @@ for epoch in range(1, NUM_EPOCHS+1):
     end_time = timer()
     print(f"Epoch: {epoch}, Train Block Loss: {train_loss_block:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s")
 
+    # 计算 val loss
     # 每隔数个epochs，做一次eval。方法：当场组装一个模型，送去eval函数里。
     # if epoch % 5 == 1:        # 每5个epochs
-    if True:                    # 每个epoch
+    # if True:                    # 每个epoch
+    #     model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
+    #     for module_name in pruned_modules:
+    #         module = pruned_modules[module_name][0]["layer"]
+    #         set_module(model_eval, module_name, module)
+    #     val_loss = evaluate(model_eval)
+    #     eval_loss_list.append(val_loss)
+    #     print(f"Evaluate Loss: {val_loss: .3f}")
+    #     # save best model
+    #     if val_loss < best_val:
+    #         best_val = val_loss
+    #         best_epoch = epoch
+    #         # save best finetuned modules
+    #         MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
+    #         np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
+    #         # save best finetuned model
+    #         MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
+    #         model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+    #         for module_name in pruned_modules:
+    #             module = pruned_modules[module_name][0]["layer"]
+    #             set_module(model2, module_name, module)
+    #         torch.save(model2, MODEL_BEST_FILE)
+    #         print("Best model updated")
+
+    # 计算 BLEU
+    if True:
         model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
         for module_name in pruned_modules:
             module = pruned_modules[module_name][0]["layer"]
             set_module(model_eval, module_name, module)
-        val_loss = evaluate(model_eval)
-        eval_loss_list.append(val_loss)
-        print(f"Evaluate Loss: {val_loss: .3f}")
-        # save best model
-        if val_loss < best_val:
-            best_val = val_loss
+        BLEU_score = evaluate_BLEU(model_eval)
+        eval_BLEU_list.append(BLEU_score)
+        print(f"BLEU score: {BLEU_score: .4f}")
+        if BLEU_score > best_BLEU:
+            best_BLEU = BLEU_score
             best_epoch = epoch
-            # save best finetuned modules
             MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
             np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
-            # save best finetuned model
             MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
-            model2 = torch.load(MODEL_BASELINE_FILE).to(device)
-            for module_name in pruned_modules:
-                module = pruned_modules[module_name][0]["layer"]
-                set_module(model2, module_name, module)
-            torch.save(model2, MODEL_BEST_FILE)
+            # model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+            # for module_name in pruned_modules:
+            #     module = pruned_modules[module_name][0]["layer"]
+            #     set_module(model2, module_name, module)
+            torch.save(model_eval, MODEL_BEST_FILE)
             print("Best model updated")
 
-print(f"Best model at Epoch: {best_epoch}, Evaluate loss: {best_val:.3f}")
+# print(f"Best model at Epoch: {best_epoch}, Evaluate loss: {best_val:.3f}")
+print(f"Best model at Epoch: {best_epoch}, BLEU score: {best_BLEU:.4f}")
 MODULE_BEST_FILE_RENAME = MODULE_BEST_PREFIX + "_epoch" + str(best_epoch) + ".npy"
 MODEL_BEST_FILE_RENAME = MODEL_BEST_PREFIX + "_epoch" + str(best_epoch) + ".pth"
 if os.path.exists(MODULE_BEST_FILE_RENAME):
@@ -340,11 +367,17 @@ plt.xlabel("Epochs")
 plt.ylabel("Block Loss Sum")
 plt.savefig("loss_finetune_block.png")
 
+# plt.figure(num=2)
+# plt.plot(x, eval_loss_list, label="eval")
+# plt.xlabel("Epochs")
+# plt.ylabel("Val Loss")
+# plt.savefig("loss_finetune_val.png")
+
 plt.figure(num=2)
-plt.plot(x, eval_loss_list, label="eval")
+plt.plot(x, eval_BLEU_list, label="eval BLEU")
 plt.xlabel("Epochs")
-plt.ylabel("Val Loss")
-plt.savefig("loss_finetune_val.png")
+plt.ylabel("BLEU score")
+plt.savefig("bleu_finetune_val.png")
 
 SAVE_PARALLEL_MODEL = False
 if SAVE_PARALLEL_MODEL:

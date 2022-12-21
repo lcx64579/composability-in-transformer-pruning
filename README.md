@@ -2,7 +2,7 @@
 
 **NOTE: Unfinished. Actively updating.**
 
-A framework to utilize the compsability between pruning configurations in the pruning of Transformer models. This implementation only focuses on the pruning of Linear (FC) layers and Multi-head Attention layers.
+A framework to utilize the composability between pruning configurations in the pruning of Transformer models. This implementation only focuses on the pruning of Linear (FC) layers and Multi-head Attention layers.
 
 ## Usage
 

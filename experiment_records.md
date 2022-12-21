@@ -1,3 +1,5 @@
+# 实验记录
+
 原始未剪枝模型 旧称Baseline，现称Origin
 Origin用朴素方法剪枝并微调 称为Baseline_pruned
 块级微调 称Finetuned 实际上是Block-level Finetuned
@@ -30,6 +32,7 @@ Origin用朴素方法剪枝并微调 称为Baseline_pruned
 [^1]: 剪枝率0.2（剪掉80%）的模型在retrain时，最初3个epochs有少许的val loss下降，然后上升，但幅度不大。其他的剪枝率均直接开始上升，严重过拟合。
 
 有没有可能是：
+
 - val loss函数不对？可能性低，教程用的就是交叉熵。但至少研究下。
 - 块loss函数不对，不应用MSELoss？有可能，调查一下。
 2022-11-09结论：既然val_loss和bleu之间不强相关，那就不看val_loss了。只看bleu。（2022-11-16：这件事只在retrain做了）

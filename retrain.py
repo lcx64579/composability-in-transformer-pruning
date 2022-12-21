@@ -260,7 +260,6 @@ if os.path.exists(MODEL_BEST_FILE_RENAME):
 os.rename(MODEL_BEST_FILE, MODEL_BEST_FILE_RENAME)
 
 # Show the result
-
 x = range(1, len(loss_train_history) + 1)
 plt.figure(1)
 plt.plot(x, loss_train_history, label='train')
@@ -268,11 +267,12 @@ plt.plot(x, loss_val_history, label='val')
 plt.legend()
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
-plt.savefig("loss_retrain.png")
+plt.savefig("retrain_loss.png")
+
 plt.figure(2)
 plt.plot(x, BLEU_history, label='BLEU')
 plt.xlabel("Epochs")
 plt.ylabel("BLEU")
-plt.savefig("BLEU_retrain.png")
+plt.savefig("retrain_BLEU.png")
 
 torch.save(model, MODEL_RETRAINED_FILE)

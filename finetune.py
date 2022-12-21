@@ -365,7 +365,7 @@ plt.figure(num=1)
 plt.plot(x, train_loss_block_list, label="train_block")
 plt.xlabel("Epochs")
 plt.ylabel("Block Loss Sum")
-plt.savefig("loss_finetune_block.png")
+plt.savefig("finetune_train_loss.png")
 
 # plt.figure(num=2)
 # plt.plot(x, eval_loss_list, label="eval")
@@ -377,7 +377,7 @@ plt.figure(num=2)
 plt.plot(x, eval_BLEU_list, label="eval BLEU")
 plt.xlabel("Epochs")
 plt.ylabel("BLEU score")
-plt.savefig("bleu_finetune_val.png")
+plt.savefig("finetune_BLEU.png")
 
 SAVE_PARALLEL_MODEL = False
 if SAVE_PARALLEL_MODEL:

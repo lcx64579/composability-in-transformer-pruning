@@ -193,6 +193,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, betas=(0.9, 0.98), e
 
 BLEU_without_retrain = evaluate_BLEU(model)
 print(f"BLEU score without retraining: {BLEU_without_retrain:.4f}")
+BLEU_history.append(BLEU_without_retrain)
 
 
 for epoch in range(1, NUM_EPOCHS+1):
@@ -269,8 +270,9 @@ plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.savefig("retrain_loss.png")
 
+x2 = range(0, len(BLEU_history))
 plt.figure(2)
-plt.plot(x, BLEU_history, label='BLEU')
+plt.plot(x2, BLEU_history, label='BLEU')
 plt.xlabel("Epochs")
 plt.ylabel("BLEU")
 plt.savefig("retrain_BLEU.png")

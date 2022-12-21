@@ -1,0 +1,32 @@
+$ python retrain.py -r 0.2 -f 9 -e 20
+/home/tongping/anaconda3/envs/transformer/lib/python3.9/site-packages/torch/utils/data/datapipes/utils/common.py:24: UserWarning: Lambda function is not supported for pickle, please use regular python function or functools.partial instead.
+  warnings.warn(
+/home/tongping/anaconda3/envs/transformer/lib/python3.9/site-packages/torch/utils/data/datapipes/iter/selecting.py:54: UserWarning: Lambda function is not supported for pickle, please use regular python function or functools.partial instead.
+  warnings.warn("Lambda function is not supported for pickle, please use "
+/home/tongping/anaconda3/envs/transformer/lib/python3.9/site-packages/torch/utils/data/datapipes/iter/combining.py:180: UserWarning: Some child DataPipes are not exhausted when __iter__ is called. We are resetting the buffer and each child DataPipe will read from the start again.
+  warnings.warn("Some child DataPipes are not exhausted when __iter__ is called. We are resetting "
+BLEU score without retraining: 13.6729
+Epoch: 1, Train loss: 1.692, Val loss: 1.987, BLEU: 32.3434 Epoch time = 21.928s
+Best model updated
+Epoch: 2, Train loss: 1.276, Val loss: 2.027, BLEU: 31.4346 Epoch time = 21.495s
+Epoch: 3, Train loss: 1.094, Val loss: 2.043, BLEU: 33.2264 Epoch time = 21.720s
+Best model updated
+Epoch: 4, Train loss: 0.974, Val loss: 2.083, BLEU: 33.8221 Epoch time = 21.883s
+Best model updated
+Epoch: 5, Train loss: 0.866, Val loss: 2.126, BLEU: 32.2763 Epoch time = 21.765s
+Epoch: 6, Train loss: 0.774, Val loss: 2.218, BLEU: 31.9906 Epoch time = 21.850s
+Epoch: 7, Train loss: 0.698, Val loss: 2.355, BLEU: 30.0822 Epoch time = 21.707s
+Epoch: 8, Train loss: 0.632, Val loss: 2.349, BLEU: 29.5261 Epoch time = 21.617s
+Epoch: 9, Train loss: 0.565, Val loss: 2.373, BLEU: 31.5962 Epoch time = 21.780s
+Epoch: 10, Train loss: 0.505, Val loss: 2.444, BLEU: 32.7094 Epoch time = 21.756s
+Epoch: 11, Train loss: 0.448, Val loss: 2.469, BLEU: 32.6096 Epoch time = 21.712s
+Epoch: 12, Train loss: 0.397, Val loss: 2.559, BLEU: 32.1324 Epoch time = 21.648s
+Epoch: 13, Train loss: 0.349, Val loss: 2.636, BLEU: 32.3158 Epoch time = 21.601s
+Epoch: 14, Train loss: 0.307, Val loss: 2.648, BLEU: 31.2904 Epoch time = 21.456s
+Epoch: 15, Train loss: 0.269, Val loss: 2.737, BLEU: 30.2092 Epoch time = 21.661s
+Epoch: 16, Train loss: 0.235, Val loss: 2.810, BLEU: 30.2320 Epoch time = 21.594s
+Epoch: 17, Train loss: 0.203, Val loss: 2.855, BLEU: 30.1564 Epoch time = 21.662s
+Epoch: 18, Train loss: 0.175, Val loss: 2.912, BLEU: 29.8845 Epoch time = 22.096s
+Epoch: 19, Train loss: 0.151, Val loss: 2.955, BLEU: 29.2656 Epoch time = 21.713s
+Epoch: 20, Train loss: 0.128, Val loss: 3.050, BLEU: 29.5521 Epoch time = 21.877s
+Best model at Epoch: 4, BLEU: 33.8221

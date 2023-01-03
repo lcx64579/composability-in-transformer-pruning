@@ -1,5 +1,7 @@
 # 实验记录
 
+2022-12-22：停止更新，转去Google Docs做记录了。
+
 原始未剪枝模型 旧称Baseline，现称Origin
 Origin用朴素方法剪枝并微调 称为Baseline_pruned
 块级微调 称Finetuned 实际上是Block-level Finetuned
@@ -28,6 +30,8 @@ Origin用朴素方法剪枝并微调 称为Baseline_pruned
 |2022-10-19|retrained_all_0_2_epoch11_epoch3.pth|Retrained|MHA0.25, Linear0.2|11/20 + 3|32.9233|最佳val loss，但并不是最佳BLEU|
 |2022-11-16|retrained_all_0_2_epoch11_epoch4.pth|Retrained|MHA0.25, Linear0.2|11/20 + 4|33.9417|在4处最好。后面一直在29～32浮动。不再跟踪val loss|
 |2022-11-16|pruned_all_0_2.pth -> retrained_all_0_2_epoch999.pth|Retrained|MHA0.25, Linear0.2|0 + 4|33.5361|没有finetune，改了个名字当做finetune过了|
+
+从此处停止更新。
 
 [^1]: 剪枝率0.2（剪掉80%）的模型在retrain时，最初3个epochs有少许的val loss下降，然后上升，但幅度不大。其他的剪枝率均直接开始上升，严重过拟合。
 

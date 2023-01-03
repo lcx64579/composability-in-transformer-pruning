@@ -32,10 +32,10 @@ NUM_EPOCHS = args.epochs
 MODEL_BASELINE_FILE = "./model/baseline.pth"
 MODEL_FINETUNED_PARALLEL_FILE = "./model/finetuned_parallel" + filename_tail + ".pth"
 MODEL_FINETUNED_FILE = "./model/finetuned" + filename_tail + ".pth"
-MODEL_BEST_PREFIX = "./model/finetuned_all_" + pruning_rate_underline
+# MODEL_BEST_PREFIX = "./model/finetuned_all_" + pruning_rate_underline
 MODULE_PRUNED_FILE = "./numpy/modules_pruned_all_" + pruning_rate_underline + ".npy"
 MODULE_FINETUNED_FILE = "./numpy/modules_finetuned" + filename_tail + ".npy"
-MODULE_BEST_PREFIX = "./numpy/modules_finetuned_all_" + pruning_rate_underline
+# MODULE_BEST_PREFIX = "./numpy/modules_finetuned_all_" + pruning_rate_underline
 assert os.path.exists(MODULE_PRUNED_FILE), "FILE NOT EXIST"
 
 
@@ -323,38 +323,39 @@ for epoch in range(1, NUM_EPOCHS+1):
     #         torch.save(model2, MODEL_BEST_FILE)
     #         print("Best model updated")
 
-    # 计算 BLEU
-    if True:
-        model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
-        for module_name in pruned_modules:
-            module = pruned_modules[module_name][0]["layer"]
-            set_module(model_eval, module_name, module)
-        BLEU_score = evaluate_BLEU(model_eval)
-        eval_BLEU_list.append(BLEU_score)
-        print(f"BLEU score: {BLEU_score: .4f}")
-        if BLEU_score > best_BLEU:
-            best_BLEU = BLEU_score
-            best_epoch = epoch
-            MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
-            np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
-            MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
-            # model2 = torch.load(MODEL_BASELINE_FILE).to(device)
-            # for module_name in pruned_modules:
-            #     module = pruned_modules[module_name][0]["layer"]
-            #     set_module(model2, module_name, module)
-            torch.save(model_eval, MODEL_BEST_FILE)
-            print("Best model updated")
+    # 剪枝块的目的是尽可能模仿原块的信息，而非得到最高的BLEU。因此只要Train Loss最低即可，下面的BLEU部分不需要了。
+#     # 计算 BLEU
+#     if True:
+#         model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
+#         for module_name in pruned_modules:
+#             module = pruned_modules[module_name][0]["layer"]
+#             set_module(model_eval, module_name, module)
+#         BLEU_score = evaluate_BLEU(model_eval)
+#         eval_BLEU_list.append(BLEU_score)
+#         print(f"BLEU score: {BLEU_score: .4f}")
+#         if BLEU_score > best_BLEU:
+#             best_BLEU = BLEU_score
+#             best_epoch = epoch
+#             MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
+#             np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
+#             MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
+#             # model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+#             # for module_name in pruned_modules:
+#             #     module = pruned_modules[module_name][0]["layer"]
+#             #     set_module(model2, module_name, module)
+#             torch.save(model_eval, MODEL_BEST_FILE)
+#             print("Best model updated")
 
-# print(f"Best model at Epoch: {best_epoch}, Evaluate loss: {best_val:.3f}")
-print(f"Best model at Epoch: {best_epoch}, BLEU score: {best_BLEU:.4f}")
-MODULE_BEST_FILE_RENAME = MODULE_BEST_PREFIX + "_epoch" + str(best_epoch) + ".npy"
-MODEL_BEST_FILE_RENAME = MODEL_BEST_PREFIX + "_epoch" + str(best_epoch) + ".pth"
-if os.path.exists(MODULE_BEST_FILE_RENAME):
-    os.remove(MODULE_BEST_FILE_RENAME)
-if os.path.exists(MODEL_BEST_FILE_RENAME):
-    os.remove(MODEL_BEST_FILE_RENAME)
-os.rename(MODULE_BEST_FILE, MODULE_BEST_FILE_RENAME)
-os.rename(MODEL_BEST_FILE, MODEL_BEST_FILE_RENAME)
+# # print(f"Best model at Epoch: {best_epoch}, Evaluate loss: {best_val:.3f}")
+# print(f"Best model at Epoch: {best_epoch}, BLEU score: {best_BLEU:.4f}")
+# MODULE_BEST_FILE_RENAME = MODULE_BEST_PREFIX + "_epoch" + str(best_epoch) + ".npy"
+# MODEL_BEST_FILE_RENAME = MODEL_BEST_PREFIX + "_epoch" + str(best_epoch) + ".pth"
+# if os.path.exists(MODULE_BEST_FILE_RENAME):
+#     os.remove(MODULE_BEST_FILE_RENAME)
+# if os.path.exists(MODEL_BEST_FILE_RENAME):
+#     os.remove(MODEL_BEST_FILE_RENAME)
+# os.rename(MODULE_BEST_FILE, MODULE_BEST_FILE_RENAME)
+# os.rename(MODEL_BEST_FILE, MODEL_BEST_FILE_RENAME)
 
 # Check the result
 for i in range(0, len(train_loss_block_list)):
@@ -373,11 +374,11 @@ plt.savefig("finetune_train_loss.png")
 # plt.ylabel("Val Loss")
 # plt.savefig("loss_finetune_val.png")
 
-plt.figure(num=2)
-plt.plot(x, eval_BLEU_list, label="eval BLEU")
-plt.xlabel("Epochs")
-plt.ylabel("BLEU score")
-plt.savefig("finetune_BLEU.png")
+# plt.figure(num=2)
+# plt.plot(x, eval_BLEU_list, label="eval BLEU")
+# plt.xlabel("Epochs")
+# plt.ylabel("BLEU score")
+# plt.savefig("finetune_BLEU.png")
 
 SAVE_PARALLEL_MODEL = False
 if SAVE_PARALLEL_MODEL:

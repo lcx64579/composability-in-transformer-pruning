@@ -9,9 +9,12 @@ A framework to utilize the composability between pruning configurations in the p
 ```bash
 # Execute each on need
 python train_origin.py
-python prune.py -r PRUNING_RATE [--generate_config]
-python finetune.py -e EPOCHS -r PRUNING_RATE [--batch_size BATCH_SIZE]
-python retrain.py -r PRUNING_RATE -f FINETUNED_EPOCHS -e RETRAINING_EPOCHS [--batch_size BATCH_SIZE]
+# python prune_single.py -r PRUNING_RATE [--generate_config]
+python prune.py
+# python finetune_single.py -e EPOCHS -r PRUNING_RATE [--batch_size BATCH_SIZE]
+python finetune.py -m MODEL_FILE -e BLOCK_FINETUNING_EPOCHS
+# python retrain_single.py -r PRUNING_RATE -f BLOCK_FINETUNED_EPOCHS -e MODEL_FINETUNING_EPOCHS [--batch_size BATCH_SIZE]
+# python retrain.py # unfinished
 python evaluate.py model_file
 ```
 

@@ -6,7 +6,7 @@
         0.2, 0.5
     ],
     "transformer.encoder.layers.0.linear2": [
-        0.2
+        0.2, 0.5
     ],
     "transformer.encoder.layers.1.self_attn": [
         0.2

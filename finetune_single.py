@@ -12,25 +12,31 @@ import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 from model import *
 from utils import set_module
-from multiple_parallel_block import *
+from parallel_block import *
 import argparse
 import os
+# from evaluate_function import evaluate_BLEU
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--modules_file", type=str, required=True, help="File of pruned modules")
 parser.add_argument("-e", "--epochs", type=int, required=True)
+parser.add_argument("-r", "--pruning_rate", type=float, required=True, help="e.g. 0.5")
 parser.add_argument("--batch_size", type=int, default=128)
 args = parser.parse_args()
+assert args.pruning_rate > 0 and args.pruning_rate <= 1, "Illegal pruning rate reported"
+pruning_rate_underline = str(args.pruning_rate).replace(".", "_")
 
-filename_tail = "_epoch" + str(args.epochs)
+filename_tail = "_all_" + pruning_rate_underline + "_epoch" + str(args.epochs)
 
 BATCH_SIZE = args.batch_size
 NUM_EPOCHS = args.epochs
 MODEL_BASELINE_FILE = "./model/baseline.pth"
-MODULE_PRUNED_FILE = args.modules_file        # 读取该文件
+MODEL_FINETUNED_PARALLEL_FILE = "./model/finetuned_parallel" + filename_tail + ".pth"
+MODEL_FINETUNED_FILE = "./model/finetuned" + filename_tail + ".pth"
+# MODEL_BEST_PREFIX = "./model/finetuned_all_" + pruning_rate_underline
+MODULE_PRUNED_FILE = "./numpy/modules_pruned_all_" + pruning_rate_underline + ".npy"
+MODULE_FINETUNED_FILE = "./numpy/modules_finetuned" + filename_tail + ".npy"
+# MODULE_BEST_PREFIX = "./numpy/modules_finetuned_all_" + pruning_rate_underline
 assert os.path.exists(MODULE_PRUNED_FILE), "FILE NOT EXIST"
-MODULE_FINETUNED_FILE = "./numpy/modules_finetuned_conf" + filename_tail + ".npy"        # 生成该文件
-SAVE_BLOCK = True       # 设为False以使本程序白费工夫
 
 
 random.seed(0)
@@ -203,41 +209,32 @@ for param in model.parameters():
     param.requires_grad = False
 
 param_to_finetune = []      # optimizer 使用
-parallel_block_list = []             # loss function 使用
+block_list = []             # loss function 使用
 
 for name_pruned in pruned_modules:
-    # module_pruned_info_list 是列表。每项都包含信息：{"layer": pruned_layer, "ratio": ratio, "head_mask": head_mask（若是MHA）}
-    module_pruned_info_list = pruned_modules[name_pruned]
-    module_type = ""        # 应当为"Linear"或"MultiheadAttention"
-    module_pruned_list = []
-    head_mask_list = []
-    # 对每一个原块，将其所有被剪块并联上去
-    for module_pruned_info in module_pruned_info_list:  # 对每一个被剪块
-        layer = module_pruned_info["layer"]
-        assert isinstance(layer, nn.MultiheadAttention) or isinstance(layer, nn.Linear), "Unexpected type of module"
-        module_pruned_list.append(layer)
-        # 如果是MHA，那么它有head_mask，需要额外取出
-        if isinstance(layer, nn.MultiheadAttention):
-            if module_type == "":
-                module_type = "MultiheadAttention"
-            head_mask = module_pruned_info["head_mask"]
-            head_mask_list.append(head_mask)
-        elif isinstance(layer, nn.Linear):
-            if module_type == "":
-                module_type = "Linear"
-    # 构建并联块
-    parallel_block = None
-    if module_type == "MultiheadAttention":
-        parallel_block = construct_parallel_block(model, name_pruned, module_pruned_list, "MultiheadAttention", head_mask_list)
-    elif module_type == "Linear":
-        parallel_block = construct_parallel_block(model, name_pruned, module_pruned_list, "Linear")
-    # 将并联块连接到原模型上
-    set_module(model, name_pruned, parallel_block)
-    # optimizer只优化这些被剪块
-    for module in parallel_block.pruned_module_list:
-        param_to_finetune.append({"params": module.parameters()})
-    parallel_block_list.append(parallel_block)
-
+    module_pruned_info = pruned_modules[name_pruned][0]     # 暂时先只用第一个块，后面再改全训练
+    assert isinstance(module_pruned_info['layer'], nn.MultiheadAttention) or isinstance(module_pruned_info['layer'], nn.Linear), "Unexpected type of module"
+    if isinstance(module_pruned_info['layer'], nn.MultiheadAttention):
+        parallel_block = construct_parallel_block(
+            model,
+            name_pruned,
+            module_pruned_info['layer'],
+            module_type="MultiheadAttention",
+            head_mask=module_pruned_info['head_mask']
+        )
+        set_module(model, name_pruned, parallel_block)
+        param_to_finetune.append({"params": parallel_block.pruned_module.parameters()})
+        block_list.append(parallel_block)
+    elif isinstance(module_pruned_info['layer'], nn.Linear):
+        parallel_block = construct_parallel_block(
+            model,
+            name_pruned,
+            module_pruned_info['layer'],
+            module_type="Linear"
+        )
+        set_module(model, name_pruned, parallel_block)
+        param_to_finetune.append({"params": parallel_block.pruned_module.parameters()})
+        block_list.append(parallel_block)
 
 
 optimizer = torch.optim.Adam(param_to_finetune, lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
@@ -249,7 +246,8 @@ eval_BLEU_list = []
 best_BLEU = 0
 best_epoch = 0
 
-for epoch in range(1, NUM_EPOCHS+1):
+# for epoch in range(1, NUM_EPOCHS+1):
+for epoch in range(1, 3):
     start_time = timer()
 
     model.train()
@@ -259,9 +257,6 @@ for epoch in range(1, NUM_EPOCHS+1):
     train_dataloader = DataLoader(train_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn)
 
     for src, tgt in train_dataloader:
-        # src: [token长度, batch_size]
-        # tgt: [token长度, batch_size]
-        # 每次循环dataloader加载的token长度不一样
         src = src.to(device)
         tgt = tgt.to(device)
 
@@ -274,25 +269,25 @@ for epoch in range(1, NUM_EPOCHS+1):
         optimizer.zero_grad()
 
         # 计算所有的「剪枝块与原块之间的Loss」之和
-        for parallel_block in parallel_block_list:
-            for i, module_pruned in enumerate(parallel_block.pruned_module_list):
-                loss = lossfn_block(parallel_block.out_pruned_list[i], parallel_block.out_original)
-                losses_block += loss
-                loss.backward()
-                # 现在梯度已经产生。但剪枝掉的 Attention 头也产生了梯度，如果就此令 optimizer 更新，
-                # 这会使剪枝失效。因此，把这些剪掉的头的梯度置为零。
-                # 首先，判断这个block是不是MHA。如果是个Linear就不用管了。
-                if parallel_block.module_type == "MultiheadAttention":
-                    num_heads = NHEAD
-                    embed_dim = EMB_SIZE
-                    head_dim = embed_dim // num_heads
-                    head_mask = parallel_block.head_mask_list[i]
-                    for threetimes in range(3):
-                        start_dim = embed_dim * threetimes
-                        for head in range(num_heads):
-                            dim_from = start_dim + head * head_dim
-                            dim_to = dim_from + head_dim
-                            module_pruned.in_proj_weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
+        for block in block_list:
+            loss = lossfn_block(block.out_pruned, block.out_original)
+            losses_block += loss
+            loss.backward()
+            # 现在梯度已经产生。但剪枝掉的 Attention 头也产生了梯度，如果就此令 optimizer 更新，
+            # 这会使剪枝失效。因此，把这些剪掉的头的梯度置为零。
+            # 首先，判断这个block是不是MHA。如果是个Linear就不用管了。
+            if block.module_type == "MultiheadAttention":
+                num_heads = NHEAD
+                embed_dim = EMB_SIZE
+                head_dim = embed_dim // num_heads
+                module = block.pruned_module
+                head_mask = block.head_mask
+                for threetimes in range(3):
+                    start_dim = embed_dim * threetimes
+                    for head in range(num_heads):
+                        dim_from = start_dim + head * head_dim
+                        dim_to = dim_from + head_dim
+                        module.in_proj_weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
 
         optimizer.step()
 
@@ -302,18 +297,108 @@ for epoch in range(1, NUM_EPOCHS+1):
     end_time = timer()
     print(f"Epoch: {epoch}, Train Block Loss: {train_loss_block:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s")
 
+    # 计算 val loss
+    # 每隔数个epochs，做一次eval。方法：当场组装一个模型，送去eval函数里。
+    # if epoch % 5 == 1:        # 每5个epochs
+    # if True:                    # 每个epoch
+    #     model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
+    #     for module_name in pruned_modules:
+    #         module = pruned_modules[module_name][0]["layer"]
+    #         set_module(model_eval, module_name, module)
+    #     val_loss = evaluate(model_eval)
+    #     eval_loss_list.append(val_loss)
+    #     print(f"Evaluate Loss: {val_loss: .3f}")
+    #     # save best model
+    #     if val_loss < best_val:
+    #         best_val = val_loss
+    #         best_epoch = epoch
+    #         # save best finetuned modules
+    #         MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
+    #         np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
+    #         # save best finetuned model
+    #         MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
+    #         model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+    #         for module_name in pruned_modules:
+    #             module = pruned_modules[module_name][0]["layer"]
+    #             set_module(model2, module_name, module)
+    #         torch.save(model2, MODEL_BEST_FILE)
+    #         print("Best model updated")
+
+    # 剪枝块的目的是尽可能模仿原块的信息，而非得到最高的BLEU。因此只要Train Loss最低即可，下面的BLEU部分不需要了。
+#     # 计算 BLEU
+#     if True:
+#         model_eval = torch.load(MODEL_BASELINE_FILE).to(device)
+#         for module_name in pruned_modules:
+#             module = pruned_modules[module_name][0]["layer"]
+#             set_module(model_eval, module_name, module)
+#         BLEU_score = evaluate_BLEU(model_eval)
+#         eval_BLEU_list.append(BLEU_score)
+#         print(f"BLEU score: {BLEU_score: .4f}")
+#         if BLEU_score > best_BLEU:
+#             best_BLEU = BLEU_score
+#             best_epoch = epoch
+#             MODULE_BEST_FILE = MODULE_BEST_PREFIX + ".npy"
+#             np.save(MODULE_BEST_FILE, pruned_modules, allow_pickle=True)
+#             MODEL_BEST_FILE = MODEL_BEST_PREFIX + ".pth"
+#             # model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+#             # for module_name in pruned_modules:
+#             #     module = pruned_modules[module_name][0]["layer"]
+#             #     set_module(model2, module_name, module)
+#             torch.save(model_eval, MODEL_BEST_FILE)
+#             print("Best model updated")
+
+# # print(f"Best model at Epoch: {best_epoch}, Evaluate loss: {best_val:.3f}")
+# print(f"Best model at Epoch: {best_epoch}, BLEU score: {best_BLEU:.4f}")
+# MODULE_BEST_FILE_RENAME = MODULE_BEST_PREFIX + "_epoch" + str(best_epoch) + ".npy"
+# MODEL_BEST_FILE_RENAME = MODEL_BEST_PREFIX + "_epoch" + str(best_epoch) + ".pth"
+# if os.path.exists(MODULE_BEST_FILE_RENAME):
+#     os.remove(MODULE_BEST_FILE_RENAME)
+# if os.path.exists(MODEL_BEST_FILE_RENAME):
+#     os.remove(MODEL_BEST_FILE_RENAME)
+# os.rename(MODULE_BEST_FILE, MODULE_BEST_FILE_RENAME)
+# os.rename(MODEL_BEST_FILE, MODEL_BEST_FILE_RENAME)
 
 # Check the result
 for i in range(0, len(train_loss_block_list)):
     train_loss_block_list[i] = train_loss_block_list[i].cpu().item()
 
 x = range(1, NUM_EPOCHS + 1)
+plt.figure(num=1)
 plt.plot(x, train_loss_block_list, label="train_block")
 plt.xlabel("Epochs")
 plt.ylabel("Block Loss Sum")
 plt.savefig("finetune_train_loss.png")
 
+# plt.figure(num=2)
+# plt.plot(x, eval_loss_list, label="eval")
+# plt.xlabel("Epochs")
+# plt.ylabel("Val Loss")
+# plt.savefig("loss_finetune_val.png")
 
+# plt.figure(num=2)
+# plt.plot(x, eval_BLEU_list, label="eval BLEU")
+# plt.xlabel("Epochs")
+# plt.ylabel("BLEU score")
+# plt.savefig("finetune_BLEU.png")
+
+SAVE_PARALLEL_MODEL = False
+if SAVE_PARALLEL_MODEL:
+    torch.save(model, MODEL_FINETUNED_PARALLEL_FILE)
+    # np.save("losses_block.npy", train_loss_block_list)
+    print("Model (paralleled) saved.")
+
+SAVE_BLOCK = True
 if SAVE_BLOCK:
     np.save(MODULE_FINETUNED_FILE, pruned_modules, allow_pickle=True)
     print("Pruned blocks saved.")
+
+SAVE_EVALUATE_MODEL = True
+if SAVE_EVALUATE_MODEL:
+    model2 = torch.load(MODEL_BASELINE_FILE).to(device)
+
+    for module_name in pruned_modules:
+        module = pruned_modules[module_name][0]["layer"]
+        set_module(model2, module_name, module)
+
+    torch.save(model2, MODEL_FINETUNED_FILE)
+    print("Model for evaluation saved.")

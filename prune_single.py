@@ -14,12 +14,21 @@ from utils import set_module
 import argparse
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-r", "--pruning_rate", type=float, required=True, help="e.g. 0.5")
+parser.add_argument("--generate_config", dest="generate_config", action="store_true")
+args = parser.parse_args()
+assert args.pruning_rate > 0 and args.pruning_rate <= 1, "Illegal pruning rate reported"
+pruning_rate_underline = str(args.pruning_rate).replace(".", "_")
+
 MODEL_BASELINE_FILE = "./model/baseline.pth"
-MODEL_PRUNED_FILE = "./model/pruned_with_conf.pth"      # 仅供Baseline Pruning参考。只采用conf中每块的第一个ratio配置。
+MODEL_PRUNED_FILE = "./model/pruned_all_" + pruning_rate_underline + ".pth"
 CONFIG_FILE = "./conf_prune.json"
-MODULE_PRUNED_FILE = "./numpy/modules_pruned_with_conf.npy"
+MODULE_PRUNED_FILE = "./numpy/modules_pruned_all_" + pruning_rate_underline + ".npy"
 MODULE_DICT_FILE = "./numpy/module_dict.npy"
 GENERATE_DICT = False       # 除非1)从未生成过module_dict.npy这个文件2)换了新模型，否则不用打开
+GENERATE_CONFIG = args.generate_config
+GENERATE_CONFIG_PRUNE_RATE = args.pruning_rate
 
 
 random.seed(0)
@@ -97,6 +106,15 @@ if GENERATE_DICT:
 module_dict = np.load(MODULE_DICT_FILE, allow_pickle=True).item()
 
 
+if GENERATE_CONFIG:
+    conf = {}
+    for key in module_dict:
+        conf[key] = [GENERATE_CONFIG_PRUNE_RATE]
+
+    conf_json = json.dumps(conf, indent=4)
+    conf_file = open(CONFIG_FILE, 'w')
+    conf_file.write(conf_json)
+    conf_file.close()
 conf_file = open(CONFIG_FILE, 'r')
 conf = json.load(conf_file)
 
@@ -180,21 +198,21 @@ def prune_attention(name: str, layer: nn.MultiheadAttention, ratio: float, embed
 
 pruned_modules = {}
 
-for name_module in conf:
-    ratio_list = conf[name_module]
-    layer = module_dict[name_module]
+for m_name in conf:
+    ratio_list = conf[m_name]
+    layer = module_dict[m_name]
     module_list = []
     if isinstance(layer, nn.Linear):
         for ratio in ratio_list:
             this_layer = copy.deepcopy(layer)
-            pruned_layer = prune_linear(name_module, this_layer, ratio)
+            pruned_layer = prune_linear(m_name, this_layer, ratio)
             module_list.append({"layer": pruned_layer, "ratio": ratio})
     elif isinstance(layer, nn.MultiheadAttention):
         for ratio in ratio_list:
             this_layer = copy.deepcopy(layer)
-            pruned_layer, head_mask = prune_attention(name_module, this_layer, ratio, EMB_SIZE, NHEAD)
+            pruned_layer, head_mask = prune_attention(m_name, this_layer, ratio, EMB_SIZE, NHEAD)
             module_list.append({"layer": pruned_layer, "ratio": ratio, "head_mask": head_mask})
-    pruned_modules[name_module] = module_list
+    pruned_modules[m_name] = module_list
 
 
 np.save(MODULE_PRUNED_FILE, pruned_modules, allow_pickle=True)

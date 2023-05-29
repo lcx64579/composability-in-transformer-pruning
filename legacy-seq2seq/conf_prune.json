@@ -1,0 +1,86 @@
+{
+    "transformer.encoder.layers.0.self_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.0.linear1": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.0.linear2": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.1.self_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.1.linear1": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.1.linear2": [
+        0.2,
+        0.5
+    ],
+    "transformer.encoder.layers.2.self_attn": [
+        0.2
+    ],
+    "transformer.encoder.layers.2.linear1": [
+        0.2
+    ],
+    "transformer.encoder.layers.2.linear2": [
+        0.2
+    ],
+    "transformer.decoder.layers.0.self_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.0.multihead_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.0.linear1": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.0.linear2": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.1.self_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.1.multihead_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.1.linear1": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.1.linear2": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.2.self_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.2.multihead_attn": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.2.linear1": [
+        0.2,
+        0.5
+    ],
+    "transformer.decoder.layers.2.linear2": [
+        0.2,
+        0.5
+    ],
+    "generator": [
+        0.2
+    ]
+}

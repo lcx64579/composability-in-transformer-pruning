@@ -1,0 +1,10 @@
+__pycache__/*
+log
+numpy/*
+model/**
+!model/checkpoint
+conf_prune.json
+*.png
+*.ipynb
+*.md
+!README.md

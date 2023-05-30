@@ -4,10 +4,10 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchtext.datasets import Multi30k
+from dataset.t5 import T5Multi30kEnDe
 from tqdm import tqdm
 from transformers import T5Tokenizer, T5ForConditionalGeneration
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
 import random
 import numpy as np
 from utils import format_time, set_module, save_checkpoint, load_checkpoint
@@ -65,15 +65,10 @@ EMB_SIZE = model.config.d_model
 NHEAD = model.config.num_heads
 
 # Load dataset
-train_iter = Multi30k(split='train', language_pair=('en', 'de'))
-train_set = list(train_iter)
-prefix = 'translate English to German: '
-train_set = [{'src': prefix + en, 'tgt': de} for en, de in train_set]
+train_set = T5Multi30kEnDe(split='train')
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
 
-val_iter = Multi30k(split='valid', language_pair=('en', 'de'))
-val_set = list(val_iter)
-val_set = [{'src': prefix + en, 'tgt': de} for en, de in val_set]
+val_set = T5Multi30kEnDe(split='valid')
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
 
 
@@ -280,7 +275,8 @@ for name_pruned in pruned_modules:
 
 
 # HuggingFace optimizer
-optimizer = AdamW(param_to_finetune, lr=5e-4, eps=1e-8)
+optimizer = torch.optim.Adam(param_to_finetune, lr=5e-4)
+# optimizer = AdamW(param_to_finetune, lr=5e-4, eps=1e-8)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader))

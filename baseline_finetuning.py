@@ -8,8 +8,8 @@ import random
 import argparse
 from tqdm import tqdm
 from transformers import T5ForConditionalGeneration, T5Tokenizer
-from transformers import AdamW, get_linear_schedule_with_warmup
-from torchtext.datasets import Multi30k
+from transformers import get_linear_schedule_with_warmup
+from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
 from utils import format_time, save_checkpoint, load_checkpoint
 
@@ -57,15 +57,10 @@ EMB_SIZE = model.config.d_model
 NHEAD = model.config.num_heads
 
 # Load dataset
-train_iter = Multi30k(split='train', language_pair=('en', 'de'))
-train_set = list(train_iter)
-prefix = 'translate English to German: '
-train_set = [{'src': prefix + en, 'tgt': de} for en, de in train_set]
+train_set = T5Multi30kEnDe(split='train')
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
-val_iter = Multi30k(split='valid', language_pair=('en', 'de'))
-val_set = list(val_iter)
-val_set = [{'src': prefix + en, 'tgt': de} for en, de in val_set]
+val_set = T5Multi30kEnDe(split='valid')
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
 

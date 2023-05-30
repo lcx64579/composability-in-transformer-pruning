@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from dataset.t5 import T5Multi30kEnDe
 from tqdm import tqdm
 from transformers import T5Tokenizer, T5ForConditionalGeneration
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
 import random
 import numpy as np
 from utils import format_time, set_module, save_checkpoint, load_checkpoint
@@ -275,7 +275,8 @@ for name_pruned in pruned_modules:
 
 
 # HuggingFace optimizer
-optimizer = AdamW(param_to_finetune, lr=5e-4, eps=1e-8)
+optimizer = torch.optim.Adam(param_to_finetune, lr=5e-4)
+# optimizer = AdamW(param_to_finetune, lr=5e-4, eps=1e-8)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader))

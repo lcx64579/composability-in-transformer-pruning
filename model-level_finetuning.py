@@ -9,7 +9,7 @@ import random
 import argparse
 from tqdm import tqdm
 from transformers import T5ForConditionalGeneration, T5Tokenizer, T5Config
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
 from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
 from utils import format_time, set_module, save_checkpoint, load_checkpoint

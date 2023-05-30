@@ -6,20 +6,18 @@ import transformers.models.t5.modeling_t5 as t5
 
 
 def set_module(model: nn.Module, submodule_key: str, module: nn.Module) -> None:
-    # Replace a module of model with a new module by name.
     r"""
-    替换模型中指定的一层。
+    Replace a submodule in a module by a new module.
 
     Args:
-        `model`: 模型
-        `submodule_key`: 一个字符串，指定哪个层要替换。例如AlexNet中的`feature.3`，
-        或者Transformer中的`transformer.encoder.layers.0.linear1`
-        `module`: 替换上去的层
+        :param model: model
+        :param submodule_key: a string of submodule key, e.g. "encoder.block.0.layer"
+        :param module: new module
 
     Output:
-        无
+        None
     """
-    # 核心函数，参考了torch.quantization.fuse_modules()的实现
+    # referenced the implementation of `torch.quantization.fuse_modules()`
     tokens = submodule_key.split('.')
     sub_tokens = tokens[:-1]
     cur_mod = model

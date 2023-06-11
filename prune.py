@@ -1,19 +1,19 @@
 import os
 import torch
+import torch.nn as nn
 import torch.nn.utils.prune as prune
-from transformers import T5Tokenizer, T5ForConditionalGeneration
 import numpy as np
 import random
 import copy
 import json
-from utils import *
+from utils import type_of_t5_module
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-m', '--model', type=str, default="./model/t5-small/", help='model directory')
+parser.add_argument('-m', '--model', type=str, default="./model/t5-small.pth", help='model file')
 parser.add_argument('-c', '--conf', type=str, default="./conf_prune.json", help='pruning scheme file')
 parser.add_argument('-o', '--output', type=str, default="./numpy/module_pruned.npy", help='output pruned modules')
-parser.add_argument('-p', '--output_pruned_model', type=str, default="./model/t5-small_pruned.pth", help='output pruned model file (PyTorch .pth)')
+# parser.add_argument('-p', '--output_pruned_model', type=str, default="./model/t5-small_pruned.pth", help='output pruned model file (PyTorch .pth)')
 args = parser.parse_args()
 
 assert os.path.exists(args.model), "Model file not found!"
@@ -22,7 +22,7 @@ assert os.path.exists(args.conf), "Pruning scheme file not found!"
 PATH_TO_ORIGINAL_MODEL = args.model
 PATH_TO_CONF = args.conf
 PATH_TO_MODULE_PRUNED = args.output
-PATH_TO_MODEL_PRUNED = args.output_pruned_model
+# PATH_TO_MODEL_PRUNED = args.output_pruned_model
 GENERATE_DICT = False   # Only set to True if the file at PATH_TO_MODULE_DICT is never generated or changed. Otherwise, set to False.
 PATH_TO_MODULE_DICT = "./numpy/module_dict.npy"
 
@@ -31,7 +31,8 @@ np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-model = T5ForConditionalGeneration.from_pretrained(PATH_TO_ORIGINAL_MODEL)
+# model = T5ForConditionalGeneration.from_pretrained(PATH_TO_ORIGINAL_MODEL)
+model = torch.load(PATH_TO_ORIGINAL_MODEL)
 conf = json.load(open(args.conf, 'r'))
 
 EMB_SIZE = model.config.d_model
@@ -155,11 +156,12 @@ for name_module in conf:
 np.save(PATH_TO_MODULE_PRUNED, pruned_modules, allow_pickle=True)
 print(f"Pruned modules saved to {PATH_TO_MODULE_PRUNED}.")
 
-model = T5ForConditionalGeneration.from_pretrained(PATH_TO_ORIGINAL_MODEL)   # Load the original model again
-for module_name in pruned_modules:
-    module = pruned_modules[module_name][0]["layer"]
-    set_module(model, module_name, module)
+# # model = T5ForConditionalGeneration.from_pretrained(PATH_TO_ORIGINAL_MODEL)   # Load the original model again
+# model = torch.load(PATH_TO_ORIGINAL_MODEL)
+# for module_name in pruned_modules:
+#     module = pruned_modules[module_name][0]["layer"]
+#     set_module(model, module_name, module)
 
-torch.save(model, PATH_TO_MODEL_PRUNED)
-# model.save_pretrained(PATH_TO_MODEL_PRUNED)
-print(f"A test pruned model (pruned with every first module in pruning scheme) saved to {PATH_TO_MODEL_PRUNED}.")
+# torch.save(model, PATH_TO_MODEL_PRUNED)
+# # model.save_pretrained(PATH_TO_MODEL_PRUNED)
+# print(f"A test pruned model (pruned with every first module in pruning scheme) saved to {PATH_TO_MODEL_PRUNED}.")

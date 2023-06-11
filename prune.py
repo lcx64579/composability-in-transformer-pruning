@@ -6,7 +6,7 @@ import numpy as np
 import random
 import copy
 import json
-from utils import type_of_t5_module
+from utils import type_of_module
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -43,7 +43,7 @@ if GENERATE_DICT:
     module_dict = {}
     # For each module in the model, if it is a Conv1D layer and its name is in the conf file, add it to module_dict
     for name, value in model.named_modules():
-        if type_of_t5_module(name, value) is not None and name in conf:
+        if type_of_module('t5', name, value) is not None and name in conf:
             module_dict[name] = value
     np.save(PATH_TO_MODULE_DICT, module_dict)
 
@@ -133,7 +133,7 @@ for name_module in conf:
     ratio_list = conf[name_module]
     layer = module_dict[name_module]
     module_list = []
-    module_type = type_of_t5_module(name_module, layer)
+    module_type = type_of_module('t5', name_module, layer)
     if module_type == "Linear":
         for ratio in ratio_list:
             this_layer = copy.deepcopy(layer)

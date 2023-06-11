@@ -33,9 +33,8 @@ def format_time(elapsed):
 
 def type_of_t5_module(name: str, module: nn.Module) -> str:
     """Return the type of a T5 module.
-    An attention module ends with `.SelfAttention` or `.EncDecAttention`. A
-    linear module in attention ends with `.o`. A linear module in FFN ends with
-    `.wi` or `.wo`.
+    An attention module ends with `.q`, `.k` or `.v`. A linear module in attention
+    ends with `.o`. A linear module in FFN ends with `.wi` or `.wo`.
 
     Args:
         :param name: name of module
@@ -54,6 +53,35 @@ def type_of_t5_module(name: str, module: nn.Module) -> str:
     elif isinstance(module, nn.Linear) and any([x in name for x in [".wi", ".wo"]]):
         return "Linear"
     else:
+        return None
+
+
+def type_of_distilbert_module(name: str, module: nn.Module) -> str:
+    """Return the type of a DistilBERT module.
+    An attention module ends with `.q_lin`, `.k_lin` or `.v_lin`. A linear module
+    in attention ends with `.out_lin`. A linear module in FFN ends with `.lin1`
+    or `.lin2`.
+    """
+    # Attention. `.q_lin`, `.k_lin`, `.v_lin`
+    if isinstance(module, nn.Linear) and any([x in name for x in [".q_lin", ".k_lin", ".v_lin"]]):
+        return "MultiheadAttention"
+    # Linear output project in Attention layer. `.out_lin`
+    elif isinstance(module, nn.Linear) and ".out_lin" in name:
+        return "Linear"
+    # Linear in FFN. `.lin1`, `.lin2`
+    elif isinstance(module, nn.Linear) and any([x in name for x in [".lin1", ".lin2"]]):
+        return "Linear"
+    else:
+        return None
+
+
+def type_of_module(model_type: str, name: str, module: nn.Module) -> str:
+    if model_type == "t5":
+        return type_of_t5_module(name, module)
+    elif model_type == "distilbert":
+        return type_of_distilbert_module(name, module)
+    else:
+        # Do NOT raise error, as modules that are not Attention or Linear could be ignored.
         return None
 
 

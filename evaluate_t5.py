@@ -3,7 +3,7 @@ import os
 import re
 import torch
 from tqdm import tqdm
-from torchtext.datasets import Multi30k
+from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
 from torchtext.data.metrics import bleu_score
 
@@ -42,13 +42,9 @@ model = torch.load(PATH_TO_MODEL).to(device)
 tokenizer = torch.load(PATH_TO_TOKENIZER)
 
 # Load dataset
-test_iter = Multi30k(split='test', language_pair=('en', 'de'))
-testset = list(test_iter)
-# Preprocess dataset. T5 do machine translation by attaching this prefix to the source sentence.
-prefix = 'translate English to German: '
-testset = [{'src': prefix + en, 'tgt': de} for en, de in testset]
+test_set = T5Multi30kEnDe('test')
 
-testloader = DataLoader(testset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
 
 
 example_result = translate(model, tokenizer, ["translate English to German: A group of people stand in front of an auditorium."])
@@ -61,9 +57,9 @@ print("====================================")
 
 references = []
 candidates = []
-testloader_length = len(testloader)
+testloader_length = len(test_loader)
 
-progress_bar = tqdm(enumerate(testloader, 0), total=testloader_length, desc=f"Evaluating: ")
+progress_bar = tqdm(enumerate(test_loader, 0), total=testloader_length, desc=f"Evaluating: ")
 for i, batch in progress_bar:
     src, tgt = batch['src'], batch['tgt']
 

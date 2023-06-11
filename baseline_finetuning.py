@@ -7,7 +7,6 @@ import numpy as np
 import random
 import argparse
 from tqdm import tqdm
-from transformers import T5ForConditionalGeneration, T5Tokenizer
 from transformers import get_linear_schedule_with_warmup
 from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
@@ -17,13 +16,16 @@ from utils import format_time, save_checkpoint, load_checkpoint
 # Argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model', type=str, default="./model/t5-small_pruned.pth", help='model file')
+parser.add_argument('-t', '--tokenizer', type=str, default="./tokenizer/t5-small.pth", help='tokenizer file')
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/baseline_finetune/", help="checkpoint directory")
 parser.add_argument('-o', '--output', type=str, default="./model/t5-small_baseline_finetuned_unspecified.pth", help='output .pth')
 parser.add_argument('--stats', type=str, default="./model/t5-small_baseline_finetuned_unspecified_stats.csv", help='output stats file')
 args = parser.parse_args()
 
 PATH_TO_ORIGINAL_MODEL = args.model     # input
+PATH_TO_TOKENIZER = args.tokenizer      # input
 assert os.path.exists(PATH_TO_ORIGINAL_MODEL), "Model file (.pth) not found!"
+assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
 PATH_TO_OUTPUT_MODEL = args.output      # output
 PATH_TO_OUTPUT_STATS = args.stats       # output
 PATH_TO_CHECKPOINT = args.check_point   # checkpoint
@@ -49,7 +51,7 @@ torch.backends.cudnn.benchmark = False
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # Load everything
-tokenizer = T5Tokenizer.from_pretrained("t5-small")
+tokenizer = torch.load(PATH_TO_TOKENIZER)
 model = torch.load(PATH_TO_ORIGINAL_MODEL)
 
 # Some other hyperparameters

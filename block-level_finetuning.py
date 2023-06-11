@@ -6,7 +6,6 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from dataset.t5 import T5Multi30kEnDe
 from tqdm import tqdm
-from transformers import T5Tokenizer, T5ForConditionalGeneration
 from transformers import get_linear_schedule_with_warmup
 import random
 import numpy as np
@@ -19,6 +18,7 @@ import os
 # Argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--origin_model", type=str, default='./model/t5-small.pth', help="original (unpruned) model file (.pth)")
+parser.add_argument('-t', '--tokenizer', type=str, default="./tokenizer/t5-small.pth", help='tokenizer file')
 parser.add_argument("-p", "--pruned_modules", type=str, default='./numpy/module_pruned.npy', help="file of pruned modules")
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/block-level/", help="checkpoint directory")
 parser.add_argument("-o", "--output", type=str, default="./numpy/module_finetuned.npy", help="output directory")
@@ -27,7 +27,9 @@ args = parser.parse_args()
 
 PATH_TO_MODEL_ORIGIN = args.origin_model        # input
 PATH_TO_MODULE_PRUNED = args.pruned_modules     # input
+PATH_TO_TOKENIZER = args.tokenizer              # input
 assert os.path.exists(PATH_TO_MODEL_ORIGIN), "Origin model directory not found!"
+assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
 assert os.path.exists(PATH_TO_MODULE_PRUNED), "Pruned modules file not found!"
 PATH_TO_OUTPUT = args.output                    # output
 PATH_TO_OUTPUT_STATS = args.stats               # output
@@ -54,9 +56,7 @@ torch.backends.cudnn.benchmark = False
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # Load everything
-# tokenizer = T5Tokenizer.from_pretrained(PATH_TO_MODEL_ORIGIN)
-# model = T5ForConditionalGeneration.from_pretrained(PATH_TO_MODEL_ORIGIN)
-tokenizer = T5Tokenizer.from_pretrained('t5-small')
+tokenizer = torch.load(PATH_TO_TOKENIZER)
 model = torch.load(PATH_TO_MODEL_ORIGIN)
 pruned_modules = np.load(PATH_TO_MODULE_PRUNED, allow_pickle=True).item()
 

@@ -1,6 +1,7 @@
-"""
-配置文件生成。配置文件名默认为 conf.json。所有的剪枝率默认设置为0.5。
-内容：
+r"""
+Generate a default config file for pruning.
+Output file default: `conf.json`
+`conf.json`:
 [
     {$module_name1$: $prune_rate1$, $module_name2$: $prune_rate2$, ...},   # config 1
     {$module_name1$: $prune_rate3$, $module_name3$: $prune_rate4$, ...},   # config 2

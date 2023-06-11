@@ -1,4 +1,4 @@
-"""
+r"""
 Generate pruning scheme from config.
 Input file default: `conf.json`
 Output file default: `conf_prune.json`

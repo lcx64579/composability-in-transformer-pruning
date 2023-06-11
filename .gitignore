@@ -2,6 +2,7 @@
 log
 numpy/*
 model/**
+tokenizer/**
 !model/checkpoint
 conf_prune.json
 *.png

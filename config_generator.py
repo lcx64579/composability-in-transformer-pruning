@@ -29,15 +29,20 @@ CONF_NUMBER = args.conf_number
 
 assert os.path.exists(PATH_TO_MODEL), "MODEL FILE DOES NOT EXIST"
 assert len(args.attention) == len(args.linear) == CONF_NUMBER, "LENGTH OF PRUNE RATE LISTS MUST BE EQUAL TO CONF NUMBER"
+TYPE_OF_MODEL = ''
+if 't5' in PATH_TO_MODEL:
+    TYPE_OF_MODEL = 't5'
+elif 'distilbert' in PATH_TO_MODEL:
+    TYPE_OF_MODEL = 'distilbert'
+print(f"Model type: {TYPE_OF_MODEL}")
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 model = torch.load(PATH_TO_MODEL).to(device)
 
-
 module_dict = {}
 for name, value in model.named_modules():
-    if type_of_module('t5', name, value) is not None:
+    if type_of_module(TYPE_OF_MODEL, name, value) is not None:
         module_dict[name] = value
 
 
@@ -45,9 +50,9 @@ conf = []
 for i in range(CONF_NUMBER):
     conf_i = {}
     for key in module_dict:
-        if type_of_module('t5', key, module_dict[key]) == "MultiheadAttention":
+        if type_of_module(TYPE_OF_MODEL, key, module_dict[key]) == "MultiheadAttention":
             conf_i[key] = args.attention[i]
-        elif type_of_module('t5', key, module_dict[key]) == "Linear":
+        elif type_of_module(TYPE_OF_MODEL, key, module_dict[key]) == "Linear":
             conf_i[key] = args.linear[i]
         else:
             # Raise an error and print the module name

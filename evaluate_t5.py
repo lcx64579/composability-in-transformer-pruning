@@ -1,12 +1,9 @@
 import argparse
-import math
 import os
 import re
 import torch
 from tqdm import tqdm
-from transformers import T5Tokenizer, T5ForConditionalGeneration
 from torchtext.datasets import Multi30k
-from functools import partial
 from torch.utils.data import DataLoader
 from torchtext.data.metrics import bleu_score
 
@@ -16,13 +13,13 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 # Parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model', type=str, help='model name')
-parser.add_argument('-d', '--is_a_directory', action='store_true', help='whether the model is in huggingface format')
-parser.add_argument('-t', '--tokenizer', type=str, default='t5-small', help='pretrained tokenizer name')
+parser.add_argument('-t', '--tokenizer', type=str, default="./tokenizer/t5-small.pth", help='tokenizer file')
 args = parser.parse_args()
 
 PATH_TO_MODEL = args.model
-HUGGINGFACE_WAY = args.is_a_directory
-assert os.path.exists(PATH_TO_MODEL), "Model file does not exist."  # Check if model file exists
+PATH_TO_TOKENIZER = args.tokenizer
+assert os.path.exists(PATH_TO_MODEL), "Model file does not exist."
+assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file does not exist."
 BATCH_SIZE = 64
 
 
@@ -41,11 +38,8 @@ def translate(model, tokenizer, sentence_batch):
 
 
 # Load model
-if HUGGINGFACE_WAY:
-    model = T5ForConditionalGeneration.from_pretrained(PATH_TO_MODEL).to(device)  # Huggingface way
-else:
-    model = torch.load(PATH_TO_MODEL).to(device)
-tokenizer = T5Tokenizer.from_pretrained('t5-small')
+model = torch.load(PATH_TO_MODEL).to(device)
+tokenizer = torch.load(PATH_TO_TOKENIZER)
 
 # Load dataset
 test_iter = Multi30k(split='test', language_pair=('en', 'de'))

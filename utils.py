@@ -6,8 +6,7 @@ import transformers.models.t5.modeling_t5 as t5
 
 
 def set_module(model: nn.Module, submodule_key: str, module: nn.Module) -> None:
-    r"""
-    Replace a submodule in a module by a new module.
+    """Replace a submodule in a module by a new module.
 
     Args:
         :param model: model
@@ -29,6 +28,24 @@ def set_module(model: nn.Module, submodule_key: str, module: nn.Module) -> None:
 def format_time(elapsed):
     # Format time
     return str(datetime.timedelta(seconds=int(round((elapsed)))))
+
+
+# Modify this to add supports to more model types.
+def type_of_model(path_to_model: str) -> str:
+    """Return the type of a model based on the path. **This requires the filename
+    of the model indicates the type of it.**
+
+    Args:
+        :param path_to_model: path to model
+    Returns:
+        :return: type of model. None if not supported.
+    """
+    if 't5' in path_to_model:
+        return 't5'
+    elif 'distilbert' in path_to_model:
+        return 'distilbert'
+    else:
+        return None
 
 
 def type_of_t5_module(name: str, module: nn.Module) -> str:
@@ -75,6 +92,7 @@ def type_of_distilbert_module(name: str, module: nn.Module) -> str:
         return None
 
 
+# Modify this to add supports to more model types.
 def type_of_module(model_type: str, name: str, module: nn.Module) -> str:
     if model_type == "t5":
         return type_of_t5_module(name, module)

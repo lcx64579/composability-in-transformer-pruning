@@ -13,7 +13,7 @@ import torch
 import json
 import argparse
 import os
-from utils import type_of_module
+from utils import type_of_module, type_of_model
 
 
 parser = argparse.ArgumentParser()
@@ -30,11 +30,8 @@ CONF_NUMBER = args.conf_number
 
 assert os.path.exists(PATH_TO_MODEL), "MODEL FILE DOES NOT EXIST"
 assert len(args.attention) == len(args.linear) == CONF_NUMBER, "LENGTH OF PRUNE RATE LISTS MUST BE EQUAL TO CONF NUMBER"
-TYPE_OF_MODEL = ''
-if 't5' in PATH_TO_MODEL:
-    TYPE_OF_MODEL = 't5'
-elif 'distilbert' in PATH_TO_MODEL:
-    TYPE_OF_MODEL = 'distilbert'
+TYPE_OF_MODEL = type_of_model(PATH_TO_MODEL)
+assert TYPE_OF_MODEL is not None, "UNKNOWN MODEL TYPE"
 print(f"Model type: {TYPE_OF_MODEL}")
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

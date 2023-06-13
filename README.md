@@ -39,10 +39,15 @@ Most of the arguments are optional.
 **Download example model `t5-small`:**
 
 ```bash
-python download_model.py
+python download_model.py MODEL_TYPE
 ```
 
-By default downloads a T5-small 60M params model from Huggingface.
+Downloads a model from Huggingface to `./model/`, together with its tokenizer to `./tokenizer/`.
+
+`MODEL_TYPE` Options:
+
+- `t5`: T5-small 60M params model for Machine Translation
+- `distilbert`: DistilBERT-imdb model for Sentiment Analysis
 
 **Generate a default configuration file:**
 
@@ -67,15 +72,15 @@ python prune_scheme_generator.py -i CONF_FILE_JSON -o OUTPUT_JSON
 **Prune based on pruning scheme:**
 
 ```bash
-python prune.py -m MODEL -c CONF -o OUTPUT_MODULES -p OUTPUT_PRUNED_MODEL
+python prune.py -m MODEL -c CONF -o OUTPUT_MODULES
 ```
 
-`OUTPUT_PRUNED_MODEL` is a test model pruned with every first module in pruning scheme. It's not necessary.
+`CONF` defaults to `conf_prune.json`.
 
 **Compose a model with pruned/finetuned modules based on a configuration:**
 
 ```bash
-python compose_model.py -m ORIGIN_MODEL -p MODULES -c CONF_FILE -n USE_NTH_CONFIG -o OUTPUT_MODEL
+python compose_model.py -m ORIGIN_MODEL -t TOKENIZER -p MODULES -c CONF_FILE -n USE_NTH_CONFIG -o OUTPUT_MODEL
 ```
 
 **Finetune a baseline model:**
@@ -105,10 +110,17 @@ python model-level_finetuning.py -m ORIGIN_MODEL -p FINETUNED_MODULES -c CONF_FI
 **Evaluate a model:**
 
 ```bash
-python evaluate.py -m model_file
+python evaluate-t5.py -m MODEL_FILE -t TOKENIZER
+# or
+python evaluate-distilbert.py -m MODEL_FILE -t TOKENIZER
 ```
 
-Evaluates the model and reports the BLEU score on Multi30K dataset.
+Evaluates the model and reports the performance.
+
+Matrices:
+
+- `t5`: BLEU score (0~100) on Multi30K test set.
+- `distilbert`: accuracy score (0~1) on IMDb test set.
 
 **Plot training loss and validation loss:**
 

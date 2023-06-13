@@ -152,7 +152,7 @@ def get_embed_dim(model_type: str, model: nn.Module) -> int:
 
 # Modify this to add supports to more model types.
 def get_num_heads(model_type: str, model: nn.Module) -> int:
-    """Get the number of heads of a model.
+    """Get the number of attention heads in a Multihead Attention layer of a model.
 
     Args:
         :param model_type: type of model

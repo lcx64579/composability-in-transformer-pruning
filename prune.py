@@ -27,10 +27,12 @@ TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
 assert TYPE_OF_MODEL is not None, "Model type not supported!"
 print(f"Model type: {TYPE_OF_MODEL}")
 
-random.seed(0)
-np.random.seed(0)
-torch.manual_seed(0)
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+RANDOM_SEED = 42
+
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+torch.manual_seed(RANDOM_SEED)
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 model = torch.load(PATH_TO_ORIGINAL_MODEL)
 conf = json.load(open(args.conf, 'r'))

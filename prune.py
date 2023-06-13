@@ -6,14 +6,13 @@ import numpy as np
 import random
 import copy
 import json
-from utils import type_of_module
+from utils import type_of_module, type_of_model, get_embed_dim, get_num_heads
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model', type=str, default="./model/t5-small.pth", help='model file')
 parser.add_argument('-c', '--conf', type=str, default="./conf_prune.json", help='pruning scheme file')
 parser.add_argument('-o', '--output', type=str, default="./numpy/module_pruned.npy", help='output pruned modules')
-# parser.add_argument('-p', '--output_pruned_model', type=str, default="./model/t5-small_pruned.pth", help='output pruned model file (PyTorch .pth)')
 args = parser.parse_args()
 
 assert os.path.exists(args.model), "Model file not found!"
@@ -22,28 +21,28 @@ assert os.path.exists(args.conf), "Pruning scheme file not found!"
 PATH_TO_ORIGINAL_MODEL = args.model
 PATH_TO_CONF = args.conf
 PATH_TO_MODULE_PRUNED = args.output
-# PATH_TO_MODEL_PRUNED = args.output_pruned_model
-GENERATE_DICT = False   # Only set to True if the file at PATH_TO_MODULE_DICT is never generated or changed. Otherwise, set to False.
+GENERATE_DICT = False   # This takes time. Only set to True if the file at PATH_TO_MODULE_DICT is never generated or changed. Otherwise, set to False.
 PATH_TO_MODULE_DICT = "./numpy/module_dict.npy"
+TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
+assert TYPE_OF_MODEL is not None, "Model type not supported!"
+print(f"Model type: {TYPE_OF_MODEL}")
 
 random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-# model = T5ForConditionalGeneration.from_pretrained(PATH_TO_ORIGINAL_MODEL)
 model = torch.load(PATH_TO_ORIGINAL_MODEL)
 conf = json.load(open(args.conf, 'r'))
 
-EMB_SIZE = model.config.d_model
-NHEAD = model.config.num_heads
+EMB_SIZE = get_embed_dim(TYPE_OF_MODEL, model)
+NHEAD = get_num_heads(TYPE_OF_MODEL, model)
 
 
 if GENERATE_DICT:
     module_dict = {}
-    # For each module in the model, if it is a Conv1D layer and its name is in the conf file, add it to module_dict
     for name, value in model.named_modules():
-        if type_of_module('t5', name, value) is not None and name in conf:
+        if type_of_module(TYPE_OF_MODEL, name, value) is not None and name in conf:
             module_dict[name] = value
     np.save(PATH_TO_MODULE_DICT, module_dict)
 
@@ -51,18 +50,31 @@ module_dict = np.load(PATH_TO_MODULE_DICT, allow_pickle=True).item()
 
 
 def prune_linear(name: str, layer: nn.Module, ratio: float) -> nn.Module:
-    """Prune a Conv1D linear layer to a certain ratio by L1-norm.
+    """Prune a Linear layer to a certain ratio by L1-norm.
 
     Args:
         name (str): name of the layer
-        layer (Conv1D): the layer to be pruned
+        layer (nn.Module): the layer to be pruned
         ratio (float): the ratio of nonzero weights to be pruned
     Returns:
-        layer (Conv1D): the pruned layer
+        layer (nn.Module): the pruned layer
     """
+    # Determine whether the layer has bias. If so, prune the bias together.
+    HAS_BIAS = False
+    if hasattr(layer, 'bias') and layer.bias is not None:
+        HAS_BIAS = True
+
     total = layer.weight.data.numel()       # total number of weights
+    if HAS_BIAS:
+        total += layer.bias.data.numel()
+
     prune.l1_unstructured(layer, 'weight', amount=1.0-ratio)    # prune
+    if HAS_BIAS:
+        prune.l1_unstructured(layer, 'bias', amount=1.0-ratio)  # prune biases
+
     total_nonzero = layer.weight.data.nonzero().shape[0]    # number of nonzero weights
+    if HAS_BIAS:
+        total_nonzero += layer.bias.data.nonzero().shape[0]
     # An alternative way to prune:
     # mask = layer.weight.data.abs().clone().gt(0).float().cuda()   # mask of nonzero weights
     # mask = layer.weight.data.abs().gt(0)  # mask of nonzero weights
@@ -73,22 +85,25 @@ def prune_linear(name: str, layer: nn.Module, ratio: float) -> nn.Module:
 
 
 def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, num_heads: int) -> tuple[nn.Module, torch.Tensor]:
-    """
-    Prunes a Conv1D attention layer by removing the least confident heads. Returns the pruned layer and a binary mask indicating which heads were pruned.
+    """Prunes a Conv1D attention layer by removing the least confident heads.
+    Returns the pruned layer and a binary mask indicating which heads were pruned.
 
     Args:
         name (str): The name of the layer being pruned.
-        layer (Conv1D): The convolutional layer to be pruned.
+        layer (nn.Module): The convolutional layer to be pruned.
         ratio (float): The ratio of heads to prune.
         embed_dim (int): The size of the embedding dimension.
         num_heads (int): The number of attention heads in the layer.
 
     Returns:
-        tuple[Conv1D, torch.Tensor]: A tuple containing the pruned layer and a binary mask indicating which heads were pruned.
+        tuple[nn.Module, torch.Tensor]: A tuple containing the pruned layer and a binary mask indicating which heads were pruned.
     """
-    # print(name, m, n)
-    # assert isinstance(layer, t5.T5Attention), "Pruning attention layer requires a T5Attention layer."
+    # Determine whether the layer has bias. If so, prune the bias together.
+    HAS_BIAS = False
+    if hasattr(layer, 'bias') and layer.bias is not None:
+        HAS_BIAS = True
 
+    # Code follows is only for counting. Bias is not considered.
     total = layer.weight.numel()        # total number of weights
 
     head_dim = embed_dim // num_heads       # Example: 512 dimensions with 8 heads => 64 dimensions per head. The loaded model has this shape.
@@ -99,8 +114,9 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
     for head in range(num_heads):
         dim_from = head * head_dim
         dim_to = dim_from + head_dim
-        head_weight = layer.weight[dim_from:dim_to]
         # Determine whether to prune: Use the sum of the weights of one head as the confidence score.
+        # Use only weight. Bias is not used.
+        head_weight = layer.weight[dim_from:dim_to]
         head_score = head_weight.abs().sum().item()
         head_scores[head] += head_score                 # Accumulate the confidence of this QKV head
 
@@ -117,9 +133,14 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
         head_weight = layer.weight[dim_from:dim_to]
         with torch.no_grad():
             head_weight.data.mul_(head_mask[head])      # Apply the mask to each head. (only weight. There is no bias in these layers.)
+        if HAS_BIAS:
+            head_bias = layer.bias[dim_from:dim_to]
+            with torch.no_grad():
+                head_bias.data.mul_(head_mask[head])
 
     # nonzero = layer.in_proj_weight.data.abs().clone().gt(0).float().cuda()      # Counting
     # total_nonzero = torch.sum(nonzero).int().item()         # Counting: number of remaining parameters after pruning
+    # Code follows is only for counting. Bias is not considered
     total_nonzero = layer.weight.nonzero().shape[0]         # Counting: number of remaining parameters after pruning
     head_nonzero = head_mask.nonzero().shape[0]             # Counting: number of remaining heads after pruning
     print(f"{name}: pruned to {total_nonzero / total:.6f} ({ratio}). {head_nonzero} heads left.")  # Counting
@@ -133,7 +154,7 @@ for name_module in conf:
     ratio_list = conf[name_module]
     layer = module_dict[name_module]
     module_list = []
-    module_type = type_of_module('t5', name_module, layer)
+    module_type = type_of_module(TYPE_OF_MODEL, name_module, layer)
     if module_type == "Linear":
         for ratio in ratio_list:
             this_layer = copy.deepcopy(layer)

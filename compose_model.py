@@ -6,23 +6,25 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from transformers import T5Tokenizer
 from utils import set_module
 
 
 # Parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--origin_model", type=str, default='./model/t5-small.pth', help="original (unpruned) model file (.pth)")
+parser.add_argument('-t', '--tokenizer', type=str, default="./tokenizer/t5-small.pth", help='tokenizer file')
 parser.add_argument("-p", "--finetuned_modules", type=str, default='./numpy/module_finetuned.npy', help="file of pruned modules")
 parser.add_argument("-c", "--conf_file", type=str, default='./conf.json', help="configuration file")
 parser.add_argument('-n', '--use_nth_config', type=int, default=0, help="Compose a model based on `n`-th config in configuration file. `n` starts at 0.")
 parser.add_argument('-o', '--output', type=str, default="./model/t5-small_composed.pth", help='output .pth')
 args = parser.parse_args()
 
-PATH_TO_ORIGINAL_MODEL = args.origin_model     # input
+PATH_TO_ORIGINAL_MODEL = args.origin_model      # input
+PATH_TO_TOKENIZER = args.tokenizer              # input
 PATH_TO_FINETUNED_MODULES = args.finetuned_modules   # input
-PATH_TO_CONFIG = args.conf_file                # input
+PATH_TO_CONFIG = args.conf_file                 # input
 assert os.path.exists(PATH_TO_ORIGINAL_MODEL), "Model file (.pth) not found!"
+assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
 assert os.path.exists(PATH_TO_FINETUNED_MODULES), "Finetuned modules file (.npy) not found!"
 assert os.path.exists(PATH_TO_CONFIG), "Configuration file (.json) not found!"
 PATH_TO_OUTPUT_MODEL = args.output      # output
@@ -44,7 +46,7 @@ torch.cuda.manual_seed(MANUAL_SEED)
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # Load everything
-tokenizer = T5Tokenizer.from_pretrained("t5-small")
+tokenizer = torch.load(PATH_TO_TOKENIZER)
 model = torch.load(PATH_TO_ORIGINAL_MODEL)
 finetuned_modules = np.load(PATH_TO_FINETUNED_MODULES, allow_pickle=True).item()
 conf_file = open(PATH_TO_CONFIG, 'r')

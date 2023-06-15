@@ -9,9 +9,8 @@ import random
 import argparse
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
-from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
-from utils import format_time, set_module, save_checkpoint, load_checkpoint
+from utils import format_time, set_module, save_checkpoint, load_checkpoint, type_of_model, get_embed_dim, get_num_heads
 
 
 # Argument parser
@@ -41,12 +40,17 @@ if not os.path.exists(PATH_TO_CHECKPOINT):
     os.mkdir(PATH_TO_CHECKPOINT)
 
 NTH_CONFIG = args.finetune_nth_config
+TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
+assert TYPE_OF_MODEL is not None, "Model type not recognized!"
+print(f"Model type: {TYPE_OF_MODEL}")
 
 # Hyperparameters
 NUM_EPOCHS = 50
-BATCH_SIZE = 256
+BATCH_SIZE = 128        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G, 128 for distilbert+IMDb on Quadro RTX 8000 48G
+LEARNING_RATE = 5e-5        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
 MANUAL_SEED = 42
-EARLY_STOPPING_PATIENCE = 5
+VALID_SET_SIZE = 1000
+EARLY_STOPPING_PATIENCE = 3     # 5 for t5-small+Multi30K default conf2, 3 for others
 CHECKPOINT_SAVE_EVERY = 5
 
 # Set random seed
@@ -68,29 +72,54 @@ conf_file = open(PATH_TO_CONFIG, 'r')
 conf = json.load(conf_file)
 model_total_number = len(conf)
 
-
 # Some other hyperparameters
-EMB_SIZE = model.config.d_model
-NHEAD = model.config.num_heads
+EMB_SIZE = get_embed_dim(TYPE_OF_MODEL, model)
+NHEAD = get_num_heads(TYPE_OF_MODEL, model)
+
 
 # Load dataset
-train_set = T5Multi30kEnDe('train')
+if TYPE_OF_MODEL == 't5':
+    from dataset.t5 import T5Multi30kEnDe
+    train_set = T5Multi30kEnDe(split='train')
+    val_set = T5Multi30kEnDe(split='valid')
+elif TYPE_OF_MODEL == 'distilbert':
+    from datasets import load_dataset
+    train_set = load_dataset('imdb', split='train')
+    val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
+    # Select a subset of validation set
+    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
+    val_set = val_set.select(indices.tolist())
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
-
-val_set = T5Multi30kEnDe('valid')
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
 
-def tokenize(batch):
-    padded_text_src = batch['src']
-    padded_text_tgt = batch['tgt']
+def tokenize_t5(batch):
+    batch_src = batch['src']
+    batch_tgt = batch['tgt']
     # token_en = tokenizer(padded_text_en, padding=True, truncation=True, max_length=768, return_tensors="pt")
     # token_de = tokenizer(padded_text_de, padding=True, truncation=True, max_length=768, return_tensors="pt")
-    token_src = tokenizer.batch_encode_plus(padded_text_src, padding=True, truncation=True, return_tensors="pt")
-    token_tgt = tokenizer.batch_encode_plus(padded_text_tgt, padding=True, truncation=True, return_tensors="pt")
+    token_src = tokenizer(batch_src, padding=True, truncation=True, return_tensors="pt")
+    token_tgt = tokenizer(batch_tgt, padding=True, truncation=True, return_tensors="pt")
     # Now, token_src/tgt is a dict with keys 'input_ids' and 'attention_mask'.
 
     return token_src, token_tgt
+
+
+def tokenize_distilbert(batch):
+    batch_text = batch['text']
+    batch_label = batch['label']
+    token_text = tokenizer(batch_text, padding=True, truncation=True, return_tensors="pt")
+
+    return token_text, batch_label
+
+
+def tokenize(MODEL_TYPE: str, batch):
+    if MODEL_TYPE == 't5':
+        return tokenize_t5(batch)
+    elif MODEL_TYPE == 'distilbert':
+        return tokenize_distilbert(batch)
+    else:
+        raise ValueError(f"Model type {MODEL_TYPE} not recognized!")
 
 
 def find_finetuned_module_by_name_and_ratio(finetuned_modules: dict, name: str, ratio: float) -> tuple[nn.Module, list]:
@@ -105,12 +134,13 @@ def find_finetuned_module_by_name_and_ratio(finetuned_modules: dict, name: str, 
     return None, None
 
 
-def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_length, valloader, valloader_length, multihead_attn_modules, continue_training=False, checkpoint_path=None):
+def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainloader_length, valloader, valloader_length, multihead_attn_modules, continue_training=False, checkpoint_path=None):
     """
     Train the model.
     :param model: model to be trained
     :param scheduler: scheduler
     :param optimizer: optimizer
+    :param criterion: loss function. DistilBERT-imdb used.
     :param num_epoch: number of epochs
     :param trainloader: trainloader
     :param trainloader_length: length of trainloader
@@ -144,18 +174,24 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
 
         model.train()
         for i, batch in progress_bar:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
             optimizer.zero_grad()
 
-            output = model(
-                source['input_ids'],
-                labels=target['input_ids'],
-                # attention_mask=source['attention_mask']
-            )
+            if TYPE_OF_MODEL == 't5':
+                output = model(
+                    source['input_ids'],
+                    labels=target['input_ids'],
+                    # attention_mask=source['attention_mask']
+                )
+                loss = output.loss
+            elif TYPE_OF_MODEL == 'distilbert':
+                output = model(**source)
+                # print(f'output.logits: {output.logits}')
+                # print(f'target: {target}')
+                loss = criterion(output.logits, target)
 
-            loss = output.loss
             batch_loss = loss.item()
 
             loss.backward()
@@ -170,7 +206,6 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
                     dim_from = head * head_dim
                     dim_to = dim_from + head_dim
                     module.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
-
 
             optimizer.step()
             scheduler.step()
@@ -191,16 +226,21 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
         model.eval()
         val_loss = 0.0
         for batch in valloader:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
-            with torch.no_grad():
-                output = model(
-                    source['input_ids'],
-                    labels=target['input_ids'],
-                    # attention_mask=source['attention_mask']
-                )
-                loss = output.loss
+            if TYPE_OF_MODEL == 't5':
+                with torch.no_grad():
+                    output = model(
+                        source['input_ids'],
+                        labels=target['input_ids'],
+                        # attention_mask=source['attention_mask']
+                    )
+                    loss = output.loss
+            elif TYPE_OF_MODEL == 'distilbert':
+                with torch.no_grad():
+                    output = model(**source)
+                    loss = criterion(output.logits, target)
 
             batch_loss = loss.item()
             val_loss += batch_loss
@@ -259,31 +299,36 @@ for name in conf_nth:
 
 
 # PyTorch optimizer:
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # HuggingFace optimizer:
 # optimizer = AdamW(model.parameters(), lr=5e-4, eps=1e-8)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader) * NUM_EPOCHS)
 
+if TYPE_OF_MODEL == 'distilbert':
+    # loss function for DistilBERT
+    loss_fn = torch.nn.CrossEntropyLoss()
+
 # Train the model
 model = model.to(device)
 
 
-# Save an untrained version of the model
-save_checkpoint(model, optimizer, scheduler, 0, float('inf'), [], float('inf'), 0, PATH_TO_CHECKPOINT)
+# Save an untrained version of the model (maybe not necessary, because we have `compose_model.py`)
+# save_checkpoint(model, optimizer, scheduler, 0, float('inf'), [], float('inf'), 0, PATH_TO_CHECKPOINT)
 
 
 training_stats = train(
     model=model,
     scheduler=scheduler,
     optimizer=optimizer,
+    criterion=loss_fn,
     num_epoch=NUM_EPOCHS,
     trainloader=train_loader,
     trainloader_length=len(train_loader),
     valloader=val_loader,
     valloader_length=len(val_loader),
-    multihead_attn_modules = multihead_attn_modules,
+    multihead_attn_modules=multihead_attn_modules,
     # continue_training=True,
     # checkpoint_path="./model/checkpoint/model-level/checkpoint_epoch_5.pt"
 )

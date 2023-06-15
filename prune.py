@@ -21,7 +21,7 @@ assert os.path.exists(args.conf), "Pruning scheme file not found!"
 PATH_TO_ORIGINAL_MODEL = args.model
 PATH_TO_CONF = args.conf
 PATH_TO_MODULE_PRUNED = args.output
-GENERATE_DICT = False   # This takes time. Only set to True if the file at PATH_TO_MODULE_DICT is never generated or changed. Otherwise, set to False.
+GENERATE_DICT = True
 PATH_TO_MODULE_DICT = "./numpy/module_dict.npy"
 TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
 assert TYPE_OF_MODEL is not None, "Model type not supported!"

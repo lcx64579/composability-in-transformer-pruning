@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 import random
 import numpy as np
-from utils import format_time, set_module, save_checkpoint, load_checkpoint
+from utils import format_time, set_module, save_checkpoint, load_checkpoint, type_of_model, get_num_heads, get_embed_dim
 from multiple_parallel_block import *
 import argparse
 import os
@@ -25,22 +25,28 @@ parser.add_argument("-o", "--output", type=str, default="./numpy/module_finetune
 parser.add_argument("--stats", type=str, default="./model/t5-small_block-level_stats.csv", help="output stats file")
 args = parser.parse_args()
 
-PATH_TO_MODEL_ORIGIN = args.origin_model        # input
-PATH_TO_MODULE_PRUNED = args.pruned_modules     # input
+PATH_TO_ORIGINAL_MODEL = args.origin_model        # input
+PATH_TO_PRUNED_MODULES = args.pruned_modules     # input
 PATH_TO_TOKENIZER = args.tokenizer              # input
-assert os.path.exists(PATH_TO_MODEL_ORIGIN), "Origin model directory not found!"
+assert os.path.exists(PATH_TO_ORIGINAL_MODEL), "Origin model directory not found!"
 assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
-assert os.path.exists(PATH_TO_MODULE_PRUNED), "Pruned modules file not found!"
+assert os.path.exists(PATH_TO_PRUNED_MODULES), "Pruned modules file not found!"
 PATH_TO_OUTPUT = args.output                    # output
 PATH_TO_OUTPUT_STATS = args.stats               # output
 PATH_TO_CHECKPOINT = args.check_point           # checkpoint
 if not os.path.exists(PATH_TO_CHECKPOINT):
     os.makedirs(PATH_TO_CHECKPOINT)
 
+TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
+assert TYPE_OF_MODEL is not None, "Model type not recognized!"
+print(f"Model type: {TYPE_OF_MODEL}")
+
 # Hyperparameters
 NUM_EPOCHS = 50
 BATCH_SIZE_SENTENCE = 256
+LEARNING_RATE = 5e-4
 MANUAL_SEED = 42
+VALID_SET_SIZE = 1000
 EARLY_STOPPING_PATIENCE = 3
 CHECKPOINT_SAVE_EVERY = 5
 
@@ -57,31 +63,56 @@ device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # Load everything
 tokenizer = torch.load(PATH_TO_TOKENIZER)
-model = torch.load(PATH_TO_MODEL_ORIGIN)
-pruned_modules = np.load(PATH_TO_MODULE_PRUNED, allow_pickle=True).item()
+model = torch.load(PATH_TO_ORIGINAL_MODEL)
+pruned_modules = np.load(PATH_TO_PRUNED_MODULES, allow_pickle=True).item()
 
 # Some other hyperparameters
-EMB_SIZE = model.config.d_model
-NHEAD = model.config.num_heads
+EMB_SIZE = get_embed_dim(TYPE_OF_MODEL, model)
+NHEAD = get_num_heads(TYPE_OF_MODEL, model)
 
 # Load dataset
-train_set = T5Multi30kEnDe(split='train')
+if TYPE_OF_MODEL == 't5':
+    from dataset.t5 import T5Multi30kEnDe
+    train_set = T5Multi30kEnDe(split='train')
+    val_set = T5Multi30kEnDe(split='valid')
+elif TYPE_OF_MODEL == 'distilbert':
+    from datasets import load_dataset
+    train_set = load_dataset('imdb', split='train')
+    val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
+    # Select a subset of validation set
+    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
+    val_set = val_set.select(indices.tolist())
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
-
-val_set = T5Multi30kEnDe(split='valid')
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
 
 
-def tokenize(batch):
-    padded_text_src = batch['src']
-    padded_text_tgt = batch['tgt']
+def tokenize_t5(batch):
+    batch_src = batch['src']
+    batch_tgt = batch['tgt']
     # token_en = tokenizer(padded_text_en, padding=True, truncation=True, max_length=768, return_tensors="pt")
     # token_de = tokenizer(padded_text_de, padding=True, truncation=True, max_length=768, return_tensors="pt")
-    token_src = tokenizer.batch_encode_plus(padded_text_src, padding=True, truncation=True, return_tensors="pt")
-    token_tgt = tokenizer.batch_encode_plus(padded_text_tgt, padding=True, truncation=True, return_tensors="pt")
+    token_src = tokenizer(batch_src, padding=True, truncation=True, return_tensors="pt")
+    token_tgt = tokenizer(batch_tgt, padding=True, truncation=True, return_tensors="pt")
     # Now, token_src/tgt is a dict with keys 'input_ids' and 'attention_mask'.
 
     return token_src, token_tgt
+
+
+def tokenize_distilbert(batch):
+    batch_text = batch['text']
+    batch_label = batch['label']
+    token_text = tokenizer(batch_text, padding=True, truncation=True, return_tensors="pt")
+
+    return token_text, batch_label
+
+
+def tokenize(MODEL_TYPE: str, batch):
+    if MODEL_TYPE == 't5':
+        return tokenize_t5(batch)
+    elif MODEL_TYPE == 'distilbert':
+        return tokenize_distilbert(batch)
+    else:
+        raise ValueError(f"Model type {MODEL_TYPE} not recognized!")
 
 
 def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainloader_length, valloader, valloader_length, continue_training=False, checkpoint_path=None):
@@ -123,16 +154,23 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
 
         model.train()
         for i, batch in progress_bar:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
             optimizer.zero_grad()
 
-            output = model(
-                source['input_ids'],
-                labels=target['input_ids'],
-                # attention_mask=source['attention_mask']
-            )
+            if TYPE_OF_MODEL == 't5':
+                output = model(
+                    input_ids=source['input_ids'],
+                    attention_mask=source['attention_mask'],
+                    labels=target['input_ids']
+                )
+            elif TYPE_OF_MODEL == 'distilbert':
+                output = model(
+                    input_ids=source['input_ids'],
+                    attention_mask=source['attention_mask'],
+                    labels=target
+                )
 
             # Backward pass
             # Calculate Loss, and delete the pruned heads' gradients
@@ -142,20 +180,24 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
                 for i, module_pruned in enumerate(parallel_block.pruned_module_list):
                     loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
                     batch_loss += loss
+
+                    #### UPDATE: Now, we don't need to handle MHA layers, because pytorch pruning handles it.
+                    #### UPDATE: Even so, this is wrong. Gradient should be cleared after loss.backward(). I kept it here for reference.
                     # The gradients have been generated. But pruned heads have also generated gradients.
                     # If the optimizer updates right now, the pruning will be invalid.
                     # Therefore, we set the gradients of these pruned heads to zero.
                     # First, determine whether this block is an MHA (Multi-head Attention).
                     # If it's a Linear layer, ignore it, because pytorch prune handles it.
-                    if parallel_block.module_type == "MultiheadAttention":
-                        num_heads = NHEAD
-                        embed_dim = EMB_SIZE
-                        head_dim = embed_dim // num_heads
-                        head_mask = parallel_block.head_mask_list[i]
-                        for head in range(num_heads):
-                            dim_from = head * head_dim
-                            dim_to = dim_from + head_dim
-                            module_pruned.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
+
+                    # if parallel_block.module_type == "MultiheadAttention":
+                    #     num_heads = NHEAD
+                    #     embed_dim = EMB_SIZE
+                    #     head_dim = embed_dim // num_heads
+                    #     head_mask = parallel_block.head_mask_list[i]
+                    #     for head in range(num_heads):
+                    #         dim_from = head * head_dim
+                    #         dim_to = dim_from + head_dim
+                    #         module_pruned.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
 
             batch_loss.backward()
             optimizer.step()
@@ -178,17 +220,22 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
         model.eval()
         val_loss = 0.0
         for batch in valloader:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
             batch_loss = torch.tensor(0.0).to(device)
-            with torch.no_grad():
-                output = model(
-                    source['input_ids'],
-                    labels=target['input_ids'],
-                    # attention_mask=source['attention_mask']
-                )
-                for parallel_block in parallel_block_list:
+            if TYPE_OF_MODEL == 't5':
+                with torch.no_grad():
+                    output = model(
+                        source['input_ids'],
+                        labels=target['input_ids'],
+                        # attention_mask=source['attention_mask']
+                    )
+            elif TYPE_OF_MODEL == 'distilbert':
+                with torch.no_grad():
+                    output = model(**source)
+
+            for parallel_block in parallel_block_list:
                     # The structure of parallel_block is: {module_type, original_module, pruned_module_list, out_original, out_pruned_list, [head_mask_list]}
                     for i, module_pruned in enumerate(parallel_block.pruned_module_list):
                         loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
@@ -274,9 +321,7 @@ for name_pruned in pruned_modules:
     parallel_block_list.append(parallel_block)
 
 
-# HuggingFace optimizer
-optimizer = torch.optim.Adam(param_to_finetune, lr=5e-4)
-# optimizer = AdamW(param_to_finetune, lr=5e-4, eps=1e-8)
+optimizer = torch.optim.Adam(param_to_finetune, lr=LEARNING_RATE)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader))

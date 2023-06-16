@@ -47,7 +47,7 @@ print(f"Model type: {TYPE_OF_MODEL}")
 # Hyperparameters
 NUM_EPOCHS = 50
 BATCH_SIZE = 128        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G, 128 for distilbert+IMDb on Quadro RTX 8000 48G
-LEARNING_RATE = 5e-5        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
+LEARNING_RATE = 5e-3        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
 EARLY_STOPPING_PATIENCE = 3     # 5 for t5-small+Multi30K default conf2, 3 for others
@@ -87,8 +87,9 @@ elif TYPE_OF_MODEL == 'distilbert':
     train_set = load_dataset('imdb', split='train')
     val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
     # Select a subset of validation set
-    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
-    val_set = val_set.select(indices.tolist())
+    # indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
+    # val_set = val_set.select(indices.tolist())
+    val_set = val_set.select(range(VALID_SET_SIZE))
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
@@ -134,13 +135,12 @@ def find_finetuned_module_by_name_and_ratio(finetuned_modules: dict, name: str, 
     return None, None
 
 
-def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainloader_length, valloader, valloader_length, multihead_attn_modules, continue_training=False, checkpoint_path=None):
+def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_length, valloader, valloader_length, multihead_attn_modules, continue_training=False, checkpoint_path=None):
     """
     Train the model.
     :param model: model to be trained
     :param scheduler: scheduler
     :param optimizer: optimizer
-    :param criterion: loss function. DistilBERT-imdb used.
     :param num_epoch: number of epochs
     :param trainloader: trainloader
     :param trainloader_length: length of trainloader
@@ -181,31 +181,33 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
 
             if TYPE_OF_MODEL == 't5':
                 output = model(
-                    source['input_ids'],
-                    labels=target['input_ids'],
-                    # attention_mask=source['attention_mask']
+                    input_ids=source['input_ids'],
+                    attention_mask=source['attention_mask'],
+                    labels=target['input_ids']
                 )
-                loss = output.loss
             elif TYPE_OF_MODEL == 'distilbert':
-                output = model(**source)
-                # print(f'output.logits: {output.logits}')
-                # print(f'target: {target}')
-                loss = criterion(output.logits, target)
+                output = model(
+                    input_ids=source['input_ids'],
+                    attention_mask=source['attention_mask'],
+                    labels=target
+                )
+            loss = output.loss
 
             batch_loss = loss.item()
 
             loss.backward()
 
+            #### UPDATE: Now, we don't need to handle MHA layers, because pytorch pruning handles it.
             # Make sure MultiheadAttention layer pruning is still there, by setting corresponding grad to 0
-            for module in multihead_attn_modules:
-                num_heads = NHEAD
-                embed_dim = EMB_SIZE
-                head_dim = embed_dim // num_heads
-                head_mask = module.head_mask
-                for head in range(num_heads):
-                    dim_from = head * head_dim
-                    dim_to = dim_from + head_dim
-                    module.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
+            # for module in multihead_attn_modules:
+            #     num_heads = NHEAD
+            #     embed_dim = EMB_SIZE
+            #     head_dim = embed_dim // num_heads
+            #     head_mask = module.head_mask
+            #     for head in range(num_heads):
+            #         dim_from = head * head_dim
+            #         dim_to = dim_from + head_dim
+            #         module.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
 
             optimizer.step()
             scheduler.step()
@@ -232,15 +234,19 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
             if TYPE_OF_MODEL == 't5':
                 with torch.no_grad():
                     output = model(
-                        source['input_ids'],
-                        labels=target['input_ids'],
-                        # attention_mask=source['attention_mask']
+                        input_ids=source['input_ids'],
+                        attention_mask=source['attention_mask'],
+                        labels=target['input_ids']
                     )
-                    loss = output.loss
             elif TYPE_OF_MODEL == 'distilbert':
                 with torch.no_grad():
-                    output = model(**source)
-                    loss = criterion(output.logits, target)
+                    output = model(
+                        input_ids=source['input_ids'],
+                        attention_mask=source['attention_mask'],
+                        labels=target
+                    )
+
+            loss = output.loss
 
             batch_loss = loss.item()
             val_loss += batch_loss
@@ -298,17 +304,11 @@ for name in conf_nth:
     set_module(model, name, module)
 
 
-# PyTorch optimizer:
-optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-# HuggingFace optimizer:
-# optimizer = AdamW(model.parameters(), lr=5e-4, eps=1e-8)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader) * NUM_EPOCHS)
 
-if TYPE_OF_MODEL == 'distilbert':
-    # loss function for DistilBERT
-    loss_fn = torch.nn.CrossEntropyLoss()
 
 # Train the model
 model = model.to(device)
@@ -322,7 +322,6 @@ training_stats = train(
     model=model,
     scheduler=scheduler,
     optimizer=optimizer,
-    criterion=loss_fn,
     num_epoch=NUM_EPOCHS,
     trainloader=train_loader,
     trainloader_length=len(train_loader),

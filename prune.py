@@ -112,7 +112,7 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
 
     head_scores = [0] * num_heads           # head_scores[] is used to record the "confidence" of each head
-    # Perform operations on Q, K, and V separately
+    # Perform operations on only one of Q, K, or V.
     for head in range(num_heads):
         dim_from = head * head_dim
         dim_to = dim_from + head_dim
@@ -129,16 +129,35 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
     head_mask = torch.ones(num_heads)                   # Create a mask, 0 means prune, 1 means keep
     head_mask[prune_heads_index] = 0                    # The mask for these unconfident heads is 0, which will be pruned.
 
+    #### Option 1: PYTORCH CUSTOM FROM MASK. Automatically handles gradiant clipping ####
+    # Create a mask which is the same size as the weights
+    custom_mask = torch.ones_like(layer.weight.data)    # Create a mask, 0 means prune, 1 means keep
     for head in range(num_heads):
         dim_from = head * head_dim
         dim_to = dim_from + head_dim
-        head_weight = layer.weight[dim_from:dim_to]
-        with torch.no_grad():
-            head_weight.data.mul_(head_mask[head])      # Apply the mask to each head. (only weight. There is no bias in these layers.)
-        if HAS_BIAS:
-            head_bias = layer.bias[dim_from:dim_to]
-            with torch.no_grad():
-                head_bias.data.mul_(head_mask[head])
+        custom_mask[dim_from:dim_to].mul_(head_mask[head])
+
+    prune.CustomFromMask.apply(layer, 'weight', custom_mask)    # Apply the mask to the layer
+    if HAS_BIAS:
+        custom_mask_bias = torch.ones_like(layer.bias.data)     # Create a mask, 0 means prune, 1 means keep
+        for head in range(num_heads):
+            dim_from = head * head_dim
+            dim_to = dim_from + head_dim
+            custom_mask_bias[dim_from:dim_to].mul_(head_mask[head])
+        prune.CustomFromMask.apply(layer, 'bias', custom_mask_bias)  # Apply the mask to the layer
+
+
+    #### Option 2: PRUNE MANUALLY. Handle gradiant clipping by yourself ####
+    # for head in range(num_heads):
+    #     dim_from = head * head_dim
+    #     dim_to = dim_from + head_dim
+    #     head_weight = layer.weight[dim_from:dim_to]
+    #     with torch.no_grad():
+    #         head_weight.data.mul_(head_mask[head])      # Apply the mask to each head. (only weight. There is no bias in these layers.)
+    #     if HAS_BIAS:
+    #         head_bias = layer.bias[dim_from:dim_to]
+    #         with torch.no_grad():
+    #             head_bias.data.mul_(head_mask[head])
 
     # nonzero = layer.in_proj_weight.data.abs().clone().gt(0).float().cuda()      # Counting
     # total_nonzero = torch.sum(nonzero).int().item()         # Counting: number of remaining parameters after pruning

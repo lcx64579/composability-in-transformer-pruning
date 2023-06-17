@@ -86,10 +86,12 @@ python compose_model.py -m ORIGIN_MODEL -t TOKENIZER -p MODULES -c CONF_FILE -n 
 **Finetune a baseline model:**
 
 ```bash
-python baseline_finetuning.py -m MODEL -o OUTPUT_MODEL --stats TRAINING_STATS_CSV
+python model-level_finetuning.py -m ORIGIN_MODEL -p PRUNED_MODULES -c CONF_FILE -n USE_NTH_CONFIG -o OUTPUT_PTH --stats TRAINING_STATS_CSV
 ```
 
 Finetunes a composed pruned model directly, without module-level finetuning. This is the baseline used for the control experiment.
+
+This is basically the same command as **Model-level Finetuning**. Only replace the `-p FINETUNED_MODULES` parameter with the pruned modules without finetuning `-p PRUNED_MODULES`.
 
 **Module(Block)-level finetune:**
 

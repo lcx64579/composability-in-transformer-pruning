@@ -42,15 +42,9 @@ assert TYPE_OF_MODEL is not None, "Model type not recognized!"
 print(f"Model type: {TYPE_OF_MODEL}")
 
 # Hyperparameters
-<<<<<<< HEAD
 NUM_EPOCHS = 100
 BATCH_SIZE = 256
 LEARNING_RATE = 5e-2
-=======
-NUM_EPOCHS = 50
-BATCH_SIZE = 128
-LEARNING_RATE = 5e-3
->>>>>>> d49dc313bea1c360b600b7e78565de0bb1b5780a
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
 EARLY_STOPPING_PATIENCE = 3

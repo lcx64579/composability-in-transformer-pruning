@@ -42,9 +42,9 @@ assert TYPE_OF_MODEL is not None, "Model type not recognized!"
 print(f"Model type: {TYPE_OF_MODEL}")
 
 # Hyperparameters
-NUM_EPOCHS = 50
-BATCH_SIZE_SENTENCE = 256
-LEARNING_RATE = 5e-4
+NUM_EPOCHS = 100
+BATCH_SIZE = 256
+LEARNING_RATE = 5e-2
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
 EARLY_STOPPING_PATIENCE = 3
@@ -70,6 +70,7 @@ pruned_modules = np.load(PATH_TO_PRUNED_MODULES, allow_pickle=True).item()
 EMB_SIZE = get_embed_dim(TYPE_OF_MODEL, model)
 NHEAD = get_num_heads(TYPE_OF_MODEL, model)
 
+
 # Load dataset
 if TYPE_OF_MODEL == 't5':
     from dataset.t5 import T5Multi30kEnDe
@@ -80,10 +81,11 @@ elif TYPE_OF_MODEL == 'distilbert':
     train_set = load_dataset('imdb', split='train')
     val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
     # Select a subset of validation set
-    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
-    val_set = val_set.select(indices.tolist())
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE_SENTENCE, shuffle=False, num_workers=0, pin_memory=True)
+    # indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
+    # val_set = val_set.select(indices.tolist())
+    val_set = val_set.select(range(VALID_SET_SIZE))
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
 
 def tokenize_t5(batch):
@@ -174,12 +176,12 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
 
             # Backward pass
             # Calculate Loss, and delete the pruned heads' gradients
-            batch_loss = torch.tensor(0.0).to(device)
+            loss = torch.tensor(0.0).to(device)
             for parallel_block in parallel_block_list:
                 # The structure of parallel_block is: {module_type, original_module, pruned_module_list, out_original, out_pruned_list, [head_mask_list]}
                 for i, module_pruned in enumerate(parallel_block.pruned_module_list):
-                    loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
-                    batch_loss += loss
+                    block_loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
+                    loss += block_loss
 
                     #### UPDATE: Now, we don't need to handle MHA layers, because pytorch pruning handles it.
                     #### UPDATE: Even so, this is wrong. Gradient should be cleared after loss.backward(). I kept it here for reference.
@@ -199,14 +201,14 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
                     #         dim_to = dim_from + head_dim
                     #         module_pruned.weight.grad.data[dim_from:dim_to].mul_(head_mask[head])
 
-            batch_loss.backward()
+            batch_loss = loss.item()
+            loss.backward()
             optimizer.step()
             scheduler.step()
 
-            running_loss += batch_loss.item()
-
+            running_loss += batch_loss
             # Update the progress bar
-            progress_bar.set_postfix({'loss': f'{batch_loss.item():.3f}'})
+            progress_bar.set_postfix({'loss': f'{batch_loss:.3f}'})
 
         training_time = format_time(time.time() - time_epoch_start)
 
@@ -223,25 +225,30 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
             source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
-            batch_loss = torch.tensor(0.0).to(device)
+            loss = torch.tensor(0.0).to(device)
             if TYPE_OF_MODEL == 't5':
                 with torch.no_grad():
                     output = model(
-                        source['input_ids'],
-                        labels=target['input_ids'],
-                        # attention_mask=source['attention_mask']
+                        input_ids=source['input_ids'],
+                        attention_mask=source['attention_mask'],
+                        labels=target['input_ids']
                     )
             elif TYPE_OF_MODEL == 'distilbert':
                 with torch.no_grad():
-                    output = model(**source)
+                    output = model(
+                        input_ids=source['input_ids'],
+                        attention_mask=source['attention_mask'],
+                        labels=target
+                    )
 
             for parallel_block in parallel_block_list:
                     # The structure of parallel_block is: {module_type, original_module, pruned_module_list, out_original, out_pruned_list, [head_mask_list]}
                     for i, module_pruned in enumerate(parallel_block.pruned_module_list):
-                        loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
-                        batch_loss += loss
+                        block_loss = criterion(parallel_block.out_pruned_list[i], parallel_block.out_original)
+                        loss += block_loss
 
-            val_loss += batch_loss.item()
+            batch_loss = loss.item()
+            val_loss += batch_loss
 
         val_time = format_time(time.time() - time_val_start)
         avg_val_loss = val_loss / valloader_length
@@ -271,7 +278,6 @@ def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainl
         if (epoch + 1) % CHECKPOINT_SAVE_EVERY == 0:
             print(f'Saving checkpoint at epoch {epoch+1}')
             save_checkpoint(model, optimizer, scheduler, epoch+1, running_loss, training_stats, early_stopping_best_loss, early_stopping_patience_counter, PATH_TO_CHECKPOINT)
-
 
     time_total = format_time(time.time() - time_total_start)
     print(f'Finished Training. Total Time: {time_total}')
@@ -321,10 +327,10 @@ for name_pruned in pruned_modules:
     parallel_block_list.append(parallel_block)
 
 
-optimizer = torch.optim.Adam(param_to_finetune, lr=LEARNING_RATE)
+optimizer = torch.optim.AdamW(param_to_finetune, lr=LEARNING_RATE)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
-                                            num_training_steps=len(train_loader))
+                                            num_training_steps=len(train_loader) * NUM_EPOCHS)
 lossfn_block = nn.MSELoss()     # loss function between each parallel block and the original block
 
 # Train the model

@@ -23,7 +23,7 @@ parser.add_argument('-n', '--finetune_nth_config', type=int, default=0, help="Th
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/model-level/", help="checkpoint directory")
 parser.add_argument('-o', '--output', type=str, default="./model/t5-small_model-level.pth", help='output .pth')
 parser.add_argument('--stats', type=str, default="./model/t5-small_model-level_stats.csv", help='output stats file')
-parser.add_argument("--lr", type=float, default=5e-4, help="learning rate")
+parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--num_epochs", type=int, default=50, help="number of epochs")
 args = parser.parse_args()
@@ -90,9 +90,9 @@ elif TYPE_OF_MODEL == 'distilbert':
     train_set = load_dataset('imdb', split='train')
     val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
     # Select a subset of validation set
-    # indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
-    # val_set = val_set.select(indices.tolist())
-    val_set = val_set.select(range(VALID_SET_SIZE))
+    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
+    val_set = val_set.select(indices.tolist())
+    # val_set = val_set.select(range(VALID_SET_SIZE))
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 

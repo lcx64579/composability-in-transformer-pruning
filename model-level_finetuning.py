@@ -23,6 +23,9 @@ parser.add_argument('-n', '--finetune_nth_config', type=int, default=0, help="Th
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/model-level/", help="checkpoint directory")
 parser.add_argument('-o', '--output', type=str, default="./model/t5-small_model-level.pth", help='output .pth')
 parser.add_argument('--stats', type=str, default="./model/t5-small_model-level_stats.csv", help='output stats file')
+parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
+parser.add_argument("--batch_size", type=int, default=256, help="batch size")
+parser.add_argument("--num_epochs", type=int, default=50, help="number of epochs")
 args = parser.parse_args()
 
 PATH_TO_ORIGINAL_MODEL = args.origin_model          # input
@@ -45,9 +48,9 @@ assert TYPE_OF_MODEL is not None, "Model type not recognized!"
 print(f"Model type: {TYPE_OF_MODEL}")
 
 # Hyperparameters
-NUM_EPOCHS = 50
-BATCH_SIZE = 128        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G, 128 for distilbert+IMDb on Quadro RTX 8000 48G
-LEARNING_RATE = 5e-3        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
+NUM_EPOCHS = args.num_epochs
+BATCH_SIZE = args.batch_size        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G, 128 for distilbert+IMDb on Quadro RTX 8000 48G
+LEARNING_RATE = args.lr        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
 EARLY_STOPPING_PATIENCE = 3     # 5 for t5-small+Multi30K default conf2, 3 for others

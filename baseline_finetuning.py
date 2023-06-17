@@ -8,9 +8,8 @@ import random
 import argparse
 from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
-from dataset.t5 import T5Multi30kEnDe
 from torch.utils.data import DataLoader
-from utils import format_time, save_checkpoint, load_checkpoint
+from utils import format_time, save_checkpoint, load_checkpoint, type_of_model, get_embed_dim, get_num_heads
 
 
 # Argument parser
@@ -32,11 +31,17 @@ PATH_TO_CHECKPOINT = args.check_point   # checkpoint
 if not os.path.exists(PATH_TO_CHECKPOINT):
     os.mkdir(PATH_TO_CHECKPOINT)
 
+TYPE_OF_MODEL = type_of_model(PATH_TO_ORIGINAL_MODEL)
+assert TYPE_OF_MODEL is not None, "Model type not recognized!"
+print(f"Model type: {TYPE_OF_MODEL}")
+
 # Hyperparameters
 NUM_EPOCHS = 50
 BATCH_SIZE = 256
+LEARNING_RATE = 5e-4
 MANUAL_SEED = 42
-EARLY_STOPPING_PATIENCE = 5
+VALID_SET_SIZE = 1000
+EARLY_STOPPING_PATIENCE = 3
 CHECKPOINT_SAVE_EVERY = 5
 
 # Set random seed
@@ -55,35 +60,62 @@ tokenizer = torch.load(PATH_TO_TOKENIZER)
 model = torch.load(PATH_TO_ORIGINAL_MODEL)
 
 # Some other hyperparameters
-EMB_SIZE = model.config.d_model
-NHEAD = model.config.num_heads
+EMB_SIZE = get_embed_dim(TYPE_OF_MODEL, model)
+NHEAD = get_num_heads(TYPE_OF_MODEL, model)
+
 
 # Load dataset
-train_set = T5Multi30kEnDe(split='train')
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+if TYPE_OF_MODEL == 't5':
+    from dataset.t5 import T5Multi30kEnDe
+    train_set = T5Multi30kEnDe(split='train')
+    val_set = T5Multi30kEnDe(split='valid')
+elif TYPE_OF_MODEL == 'distilbert':
+    from datasets import load_dataset
+    train_set = load_dataset('imdb', split='train')
+    val_set = load_dataset('imdb', split='test')    # imdb does not have a validation set
+    indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)
+    val_set = val_set.select(indices.tolist())
 
-val_set = T5Multi30kEnDe(split='valid')
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
 
 
-def tokenize(batch):
-    padded_text_src = batch['src']
-    padded_text_tgt = batch['tgt']
+def tokenize_t5(batch):
+    batch_src = batch['src']
+    batch_tgt = batch['tgt']
     # token_en = tokenizer(padded_text_en, padding=True, truncation=True, max_length=768, return_tensors="pt")
     # token_de = tokenizer(padded_text_de, padding=True, truncation=True, max_length=768, return_tensors="pt")
-    token_src = tokenizer.batch_encode_plus(padded_text_src, padding=True, truncation=True, return_tensors="pt")
-    token_tgt = tokenizer.batch_encode_plus(padded_text_tgt, padding=True, truncation=True, return_tensors="pt")
+    token_src = tokenizer(batch_src, padding=True, truncation=True, return_tensors="pt")
+    token_tgt = tokenizer(batch_tgt, padding=True, truncation=True, return_tensors="pt")
     # Now, token_src/tgt is a dict with keys 'input_ids' and 'attention_mask'.
 
     return token_src, token_tgt
 
 
-def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_length, valloader, valloader_length, continue_training=False, checkpoint_path=None):
+def tokenize_distilbert(batch):
+    batch_text = batch['text']
+    batch_label = batch['label']
+    token_text = tokenizer(batch_text, padding=True, truncation=True, return_tensors="pt")
+
+    return token_text, batch_label
+
+
+def tokenize(MODEL_TYPE: str, batch):
+    if MODEL_TYPE == 't5':
+        return tokenize_t5(batch)
+    elif MODEL_TYPE == 'distilbert':
+        return tokenize_distilbert(batch)
+    else:
+        raise ValueError(f"Model type {MODEL_TYPE} not recognized!")
+
+
+def train(model, scheduler, optimizer, criterion, num_epoch, trainloader, trainloader_length, valloader, valloader_length, continue_training=False, checkpoint_path=None):
     """
     Train the model.
     :param model: model to be trained
     :param scheduler: scheduler
     :param optimizer: optimizer
+    :param criterion: loss function. DistilBERT-imdb used.
     :param num_epoch: number of epochs
     :param trainloader: trainloader
     :param trainloader_length: length of trainloader
@@ -116,21 +148,30 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
 
         model.train()
         for i, batch in progress_bar:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
             optimizer.zero_grad()
 
-            output = model(
-                source['input_ids'],
-                labels=target['input_ids'],
-                # attention_mask=source['attention_mask']
-            )
+            if TYPE_OF_MODEL == 't5':
+                output = model(
+                    source['input_ids'],
+                    labels=target['input_ids'],
+                    # attention_mask=source['attention_mask']
+                )
+                loss = output.loss
+            elif TYPE_OF_MODEL == 'distilbert':
+                output = model(**source)
+                # print(f'output.logits: {output.logits}')
+                # print(f'target: {target}')
+                loss = criterion(output.logits, target)
 
-            loss = output.loss
             batch_loss = loss.item()
 
             loss.backward()
+
+            ###### TODO: gradient clipping ######
+
             optimizer.step()
             scheduler.step()
 
@@ -150,16 +191,21 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
         model.eval()
         val_loss = 0.0
         for batch in valloader:
-            source, target = tokenize(batch)
+            source, target = tokenize(TYPE_OF_MODEL, batch)
             source, target = source.to(device), target.to(device)
 
-            with torch.no_grad():
-                output = model(
-                    source['input_ids'],
-                    labels=target['input_ids'],
-                    # attention_mask=source['attention_mask']
-                )
-                loss = output.loss
+            if TYPE_OF_MODEL == 't5':
+                with torch.no_grad():
+                    output = model(
+                        source['input_ids'],
+                        labels=target['input_ids'],
+                        # attention_mask=source['attention_mask']
+                    )
+                    loss = output.loss
+            elif TYPE_OF_MODEL == 'distilbert':
+                with torch.no_grad():
+                    output = model(**source)
+                    loss = criterion(output.logits, target)
 
             batch_loss = loss.item()
             val_loss += batch_loss
@@ -193,7 +239,6 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
             print(f'Saving checkpoint at epoch {epoch+1}')
             save_checkpoint(model, optimizer, scheduler, epoch+1, running_loss, training_stats, early_stopping_best_loss, early_stopping_patience_counter, PATH_TO_CHECKPOINT)
 
-
     time_total = format_time(time.time() - time_total_start)
     print(f'Finished Training. Total Time: {time_total}')
 
@@ -201,12 +246,16 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
 
 
 # PyTorch optimizer:
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # HuggingFace optimizer:
 # optimizer = AdamW(model.parameters(), lr=5e-4, eps=1e-8)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=1e2,
                                             num_training_steps=len(train_loader) * NUM_EPOCHS)
+
+if TYPE_OF_MODEL == 'distilbert':
+    # loss function for DistilBERT
+    loss_fn = torch.nn.CrossEntropyLoss()
 
 # Train the model
 model = model.to(device)
@@ -214,6 +263,7 @@ training_stats = train(
     model=model,
     scheduler=scheduler,
     optimizer=optimizer,
+    criterion=loss_fn,
     num_epoch=NUM_EPOCHS,
     trainloader=train_loader,
     trainloader_length=len(train_loader),

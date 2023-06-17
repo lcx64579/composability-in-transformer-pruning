@@ -23,9 +23,9 @@ parser.add_argument("-p", "--pruned_modules", type=str, default='./numpy/module_
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/block-level/", help="checkpoint directory")
 parser.add_argument("-o", "--output", type=str, default="./numpy/module_finetuned.npy", help="output directory")
 parser.add_argument("--stats", type=str, default="./model/t5-small_block-level_stats.csv", help="output stats file")
-parser.add_argument("--lr", type=float, default=5e-2, help="learning rate")
+parser.add_argument("--lr", type=float, default=5e-4, help="learning rate")
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
-parser.add_argument("--num_epochs", type=int, default=5, help="number of epochs")
+parser.add_argument("--num_epochs", type=int, default=10, help="number of epochs")
 args = parser.parse_args()
 
 PATH_TO_ORIGINAL_MODEL = args.origin_model        # input

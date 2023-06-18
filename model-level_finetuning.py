@@ -23,7 +23,7 @@ parser.add_argument('-n', '--finetune_nth_config', type=int, default=0, help="Th
 parser.add_argument("--check_point", type=str, default="./model/checkpoint/model-level/", help="checkpoint directory")
 parser.add_argument('-o', '--output', type=str, default="./model/t5-small_model-level.pth", help='output .pth')
 parser.add_argument('--stats', type=str, default="./model/t5-small_model-level_stats.csv", help='output stats file')
-parser.add_argument("--lr", type=float, default=5e-3, help="learning rate")
+parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--num_epochs", type=int, default=50, help="number of epochs")
 args = parser.parse_args()
@@ -53,7 +53,7 @@ BATCH_SIZE = args.batch_size        # 256 for t5-small+Multi30K on Quadro RTX 80
 LEARNING_RATE = args.lr        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
-EARLY_STOPPING_PATIENCE = 3     # 5 for t5-small+Multi30K default conf2, 3 for others
+EARLY_STOPPING_PATIENCE = 5     # 5 for t5-small+Multi30K default conf2, 3 for others
 CHECKPOINT_SAVE_EVERY = 5
 
 # Set random seed

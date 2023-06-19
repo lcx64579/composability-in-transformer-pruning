@@ -8,7 +8,7 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 # Parse arguments
 parser = argparse.ArgumentParser()

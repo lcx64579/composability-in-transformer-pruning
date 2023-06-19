@@ -26,6 +26,7 @@ parser.add_argument("--stats", type=str, default="./model/t5-small_block-level_s
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--num_epochs", type=int, default=20, help="number of epochs")
+parser.add_argument("--early_stop", type=int, default=5, help="early stop patience. Will early stop if the validation loss does not decrease for `early_stop` epochs.")
 args = parser.parse_args()
 
 PATH_TO_ORIGINAL_MODEL = args.origin_model      # input
@@ -52,7 +53,8 @@ BATCH_SIZE = args.batch_size
 LEARNING_RATE = args.lr
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
-EARLY_STOPPING_PATIENCE = 3
+EARLY_STOPPING_PATIENCE = args.early_stop
+assert EARLY_STOPPING_PATIENCE > 0, "Early stopping patience must be greater than 0!"
 CHECKPOINT_SAVE_EVERY = 5
 
 # Set random seed

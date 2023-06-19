@@ -12,16 +12,6 @@ This project is a framework that leverages the composability between pruning con
 
 Explanation and thesis will be added finally.
 
-T5-small:
-
-- Model: [T5 small 60M parameters](https://huggingface.co/t5-small)
-- Dataset: [Multi30K](https://pytorch.org/text/stable/_modules/torchtext/datasets/multi30k.html)
-
-DistilBERT:
-
-- Model: [DistilBERT-imdb](https://huggingface.co/lvwerra/distilbert-imdb)
-- Dataset: [IMDb](https://huggingface.co/datasets/imdb)
-
 > **Terminology**
 >
 > Using term **Block-level** in code instead of **Module-level** because it is more readable. In fact **Module-level** is the more appropriate expression.
@@ -30,7 +20,7 @@ DistilBERT:
 
 ## Dependencies
 
-You need at least Huggingface's `transformers`, PyTorch and `torchtext`. Other dependencies such as numpy, matplotlib, etc. are also needed.
+Huggingface's transformers, PyTorch, and torchtext are the basic requirements. Other dependencies such as numpy, matplotlib, etc. are also needed.
 
 ## Usage
 
@@ -131,3 +121,19 @@ Matrices:
 ```
 
 Plots losses and saves to `loss.png`.
+
+## Experiment Setup
+
+**T5-small**:
+
+- Model: [T5 small 60M parameters](https://huggingface.co/t5-small)
+- Dataset: [Multi30K](https://pytorch.org/text/stable/_modules/torchtext/datasets/multi30k.html)
+
+**DistilBERT**:
+
+> Not recommended. DistilBERT-imdb overfits on IMDb dataset with more than 1 epoch (`lr=1e-3, batch_size=128`), even after pruning.
+>
+> If you really want to do it, try a learning rate that is REALLY small, such as `lr=1e-6`.
+
+- Model: [DistilBERT-imdb](https://huggingface.co/lvwerra/distilbert-imdb)
+- Dataset: [IMDb](https://huggingface.co/datasets/imdb)

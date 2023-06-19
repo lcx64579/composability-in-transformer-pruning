@@ -26,6 +26,7 @@ parser.add_argument('--stats', type=str, default="./model/t5-small_model-level_s
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--num_epochs", type=int, default=50, help="number of epochs")
+parser.add_argument("--early_stop", type=int, default=5, help="early stop patience. Will early stop if the validation loss does not decrease for `early_stop` epochs.")
 args = parser.parse_args()
 
 PATH_TO_ORIGINAL_MODEL = args.origin_model          # input
@@ -53,7 +54,8 @@ BATCH_SIZE = args.batch_size        # 256 for t5-small+Multi30K on Quadro RTX 80
 LEARNING_RATE = args.lr        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
-EARLY_STOPPING_PATIENCE = 5     # 5 for t5-small+Multi30K default conf2, 3 for others
+EARLY_STOPPING_PATIENCE = args.early_stop     # 5 for t5-small+Multi30K default conf2, 3 for others
+assert EARLY_STOPPING_PATIENCE > 0, "Early stopping patience must be greater than 0!"
 CHECKPOINT_SAVE_EVERY = 5
 
 # Set random seed

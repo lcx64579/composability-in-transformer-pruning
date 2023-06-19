@@ -93,8 +93,8 @@ elif TYPE_OF_MODEL == 'distilbert':
     indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
     val_set = val_set.select(indices.tolist())
     # val_set = val_set.select(range(VALID_SET_SIZE))
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
 
 
 def tokenize_t5(batch):
@@ -194,6 +194,15 @@ def train(model, scheduler, optimizer, num_epoch, trainloader, trainloader_lengt
                     attention_mask=source['attention_mask'],
                     labels=target
                 )
+                # tqdm.write('=========================')
+                # # tqdm.write(f'shape of source: {source["input_ids"].shape}')
+                # tqdm.write(f'target: {target}')
+                # # tqdm.write(f'output: {output}')
+                # prediction = [np.argmax(logit, axis=-1) for logit in output.logits.detach().cpu().numpy()]
+                # tqdm.write(f'prediction: {prediction}')
+                # acc = np.sum(prediction == target.cpu().numpy())
+                # tqdm.write(f'acc: {acc}')
+                # tqdm.write('=========================')
             loss = output.loss
 
             batch_loss = loss.item()

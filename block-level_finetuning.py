@@ -35,7 +35,9 @@ assert os.path.exists(PATH_TO_ORIGINAL_MODEL), "Origin model directory not found
 assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
 assert os.path.exists(PATH_TO_PRUNED_MODULES), "Pruned modules file not found!"
 PATH_TO_OUTPUT = args.output                    # output
+assert PATH_TO_OUTPUT.endswith(".npy"), "Output file must be .npy file!"
 PATH_TO_OUTPUT_STATS = args.stats               # output
+assert PATH_TO_OUTPUT_STATS.endswith(".csv"), "Output stats file must be .csv file!"
 PATH_TO_CHECKPOINT = args.check_point           # checkpoint
 if not os.path.exists(PATH_TO_CHECKPOINT):
     os.makedirs(PATH_TO_CHECKPOINT)

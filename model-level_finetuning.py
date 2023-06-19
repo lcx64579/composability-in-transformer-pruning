@@ -38,7 +38,9 @@ assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
 assert os.path.exists(PATH_TO_FINETUNED_MODULES), "Finetuned modules file (.npy) not found!"
 assert os.path.exists(PATH_TO_CONFIG), "Configuration file (.json) not found!"
 PATH_TO_OUTPUT_MODEL = args.output      # output
+assert PATH_TO_OUTPUT_MODEL.endswith('.pth'), "Output model file must be a .pth file!"
 PATH_TO_OUTPUT_STATS = args.stats       # output
+assert PATH_TO_OUTPUT_STATS.endswith('.csv'), "Output stats file must be a .csv file!"
 PATH_TO_CHECKPOINT = args.check_point   # checkpoint
 if not os.path.exists(PATH_TO_CHECKPOINT):
     os.mkdir(PATH_TO_CHECKPOINT)
@@ -50,11 +52,11 @@ print(f"Model type: {TYPE_OF_MODEL}")
 
 # Hyperparameters
 NUM_EPOCHS = args.num_epochs
-BATCH_SIZE = args.batch_size        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G, 128 for distilbert+IMDb on Quadro RTX 8000 48G
-LEARNING_RATE = args.lr        # 5e-3 for t5-small+Multi30K default conf2, 5e-4 for others; 5e-5 for distilbert+IMDb default conf0
+BATCH_SIZE = args.batch_size        # 256 for t5-small+Multi30K on Quadro RTX 8000 48G; 128 for distilbert+IMDb on Quadro RTX 8000 48G
+LEARNING_RATE = args.lr        # 5e-3 for t5-small+Multi30K; 1e-6 for distilbert+IMDb (to avoid converging too fast)
 MANUAL_SEED = 42
 VALID_SET_SIZE = 1000
-EARLY_STOPPING_PATIENCE = args.early_stop     # 5 for t5-small+Multi30K default conf2, 3 for others
+EARLY_STOPPING_PATIENCE = args.early_stop     # 5 for t5-small+Multi30K; 3 for distilbert+IMDb
 assert EARLY_STOPPING_PATIENCE > 0, "Early stopping patience must be greater than 0!"
 CHECKPOINT_SAVE_EVERY = 5
 

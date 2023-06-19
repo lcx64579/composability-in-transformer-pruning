@@ -28,8 +28,8 @@ parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--num_epochs", type=int, default=20, help="number of epochs")
 args = parser.parse_args()
 
-PATH_TO_ORIGINAL_MODEL = args.origin_model        # input
-PATH_TO_PRUNED_MODULES = args.pruned_modules     # input
+PATH_TO_ORIGINAL_MODEL = args.origin_model      # input
+PATH_TO_PRUNED_MODULES = args.pruned_modules    # input
 PATH_TO_TOKENIZER = args.tokenizer              # input
 assert os.path.exists(PATH_TO_ORIGINAL_MODEL), "Origin model directory not found!"
 assert os.path.exists(PATH_TO_TOKENIZER), "Tokenizer file (.pth) not found!"
@@ -89,8 +89,8 @@ elif TYPE_OF_MODEL == 'distilbert':
     indices = np.random.choice(len(val_set), size=VALID_SET_SIZE, replace=False)    # use this because it is hashable. Was using range(VALID_SET_SIZE) in .select() before, but keep getting warning because it's unhashable
     val_set = val_set.select(indices.tolist())
     # val_set = val_set.select(range(VALID_SET_SIZE))
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
+val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
 
 
 def tokenize_t5(batch):

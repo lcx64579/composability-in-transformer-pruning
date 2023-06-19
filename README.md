@@ -131,7 +131,7 @@ Plots losses and saves to `loss.png`.
 
 **DistilBERT**:
 
-> Not recommended. DistilBERT-imdb overfits on IMDb dataset with more than 1 epoch (`lr=1e-3, batch_size=128`), even after pruning.
+> Not recommended. With learning rate = 5e-5 ~ 1e-3, DistilBERT-imdb overfits on IMDb dataset with more than 1 epoch (`lr=1e-3, batch_size=128`), even after pruning.
 >
 > If you really want to do it, try a learning rate that is REALLY small, such as `lr=1e-6`.
 

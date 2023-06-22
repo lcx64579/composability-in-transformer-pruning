@@ -29,6 +29,9 @@ parser.add_argument("--num_epochs", type=int, default=20, help="number of epochs
 parser.add_argument("--early_stop", type=int, default=5, help="early stop patience. Will early stop if the validation loss does not decrease for `early_stop` epochs.")
 args = parser.parse_args()
 
+# print args as json
+print(json.dumps(vars(args), indent=4))
+
 PATH_TO_ORIGINAL_MODEL = args.origin_model      # input
 PATH_TO_PRUNED_MODULES = args.pruned_modules    # input
 PATH_TO_TOKENIZER = args.tokenizer              # input

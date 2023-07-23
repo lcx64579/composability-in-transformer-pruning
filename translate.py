@@ -1,8 +1,10 @@
 from transformers import T5Tokenizer, T5ForConditionalGeneration
+import torch
 
-PATH_TO_MODEL = "./model/t5-small"
-tokenizer = T5Tokenizer.from_pretrained(PATH_TO_MODEL)
-model = T5ForConditionalGeneration.from_pretrained(PATH_TO_MODEL)
+PATH_TO_MODEL = "./model/t5-small.pth"
+PATH_TO_TOKENIZER = "./tokenizer/t5-small.pth"
+tokenizer = torch.load(PATH_TO_TOKENIZER)
+model = torch.load(PATH_TO_MODEL)
 
 # Google T5 only support translation from English to French, German and Romanian
 # Format: "translate English to French: How old are you?". The output should be: "Wie alt sind Sie?"

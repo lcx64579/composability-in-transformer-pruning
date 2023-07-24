@@ -17,6 +17,12 @@ Explanation and thesis will be added finally.
 > Using term **Block-level** in code instead of **Module-level** because it is more readable. In fact **Module-level** is the more appropriate expression.
 >
 > The terms **layer** and **module** are interchangeable in this project.
+>
+> **Notice**
+>
+> In most of the codes I set the device to `cuda:1` because I have two GPUs and I want to use the second one. If you have only one GPU, change it to `cuda`.
+>
+> A Seq2Seq model is included in the source files for my convenience; However, for the full usage of it, please see `./legacy-seq2seq/` folder.
 
 ## Dependencies
 

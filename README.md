@@ -1,7 +1,5 @@
 # Composability in Transformer Pruning
 
-**NOTE: Unfinished. Actively updating.**
-
 ## Introduction
 
 This is my master's thesis project.
@@ -23,6 +21,8 @@ Explanation and thesis will be added finally.
 > In most of the codes I set the device to `cuda:1` because I have two GPUs and I want to use the second one. If you have only one GPU, change it to `cuda`.
 >
 > A Seq2Seq model is included in the source files for my convenience; However, for the full usage of it, please see `./legacy-seq2seq/` folder.
+>
+> **DistilBERT pruning is half-broken.** I'm not bothering fix it because it won't work well anyway.
 
 ## Dependencies
 
@@ -137,7 +137,7 @@ Plots losses and saves to `loss.png`.
 
 **DistilBERT**:
 
-> Not recommended. With learning rate = 5e-5 ~ 1e-3, DistilBERT-imdb overfits on IMDb dataset with more than 1 epoch (`lr=1e-3, batch_size=128`), even after pruning.
+> Not recommended. It is broken anyway. Even if fixed, with learning rate = 5e-5 ~ 1e-3, DistilBERT-imdb overfits on IMDb dataset with more than 1 epoch (`lr=1e-3, batch_size=128`), even after pruning.
 >
 > If you really want to do it, try a learning rate that is REALLY small, such as `lr=1e-6`.
 

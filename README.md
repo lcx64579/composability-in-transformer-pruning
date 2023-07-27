@@ -8,7 +8,7 @@ Sometimes, you might want to prune and fine-tune a model into several different 
 
 This project is a framework that leverages the composability between pruning configurations in the pruning & fine-tuning process of Transformer models to speed up the process. The focus of this implementation is on the pruning of Linear (both feed forward and attention out-projection) modules, as well as Multi-head Attention modules. By default, it applies $l_1$-unstructured pruning to Linear weight matrices, and head-wise $l_1$-structured pruning to Attention QKV matrices.
 
-Explanation and thesis will be added finally.
+Contact me if you want to see the full thesis.
 
 > **Terminology**
 >

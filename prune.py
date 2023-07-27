@@ -105,8 +105,19 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
     if hasattr(layer, 'bias') and layer.bias is not None:
         HAS_BIAS = True
 
+    if TYPE_OF_MODEL == "t5":
+        q = layer.q
+        k = layer.k
+        v = layer.v
+        o = layer.o
+    elif TYPE_OF_MODEL == "distilbert":
+        q = layer.q_lin
+        k = layer.k_lin
+        v = layer.v_lin
+        o = layer.out_lin
+
     # Code follows is only for counting. Bias is not considered.
-    total = layer.weight.numel()        # total number of weights
+    total = q.weight.numel() + k.weight.numel() + v.weight.numel() + o.weight.numel()
 
     head_dim = embed_dim // num_heads       # Example: 512 dimensions with 8 heads => 64 dimensions per head. The loaded model has this shape.
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
@@ -118,8 +129,10 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
         dim_to = dim_from + head_dim
         # Determine whether to prune: Use the sum of the weights of one head as the confidence score.
         # Use only weight. Bias is not used.
-        head_weight = layer.weight[dim_from:dim_to]
-        head_score = head_weight.abs().sum().item()
+        q_weight = q.weight[dim_from:dim_to]
+        k_weight = k.weight[dim_from:dim_to]
+        v_weight = v.weight[dim_from:dim_to]
+        head_score = q_weight.abs().sum().item() + k_weight.abs().sum().item() + v_weight.abs().sum().item()
         head_scores[head] += head_score                 # Accumulate the confidence of this QKV head
 
     _, head_scores_rank = torch.Tensor(head_scores).sort()  # Sort by confidence score to obtain the ranking of each head: rank[0] is the least confident, rank[7] is the most confident.
@@ -131,20 +144,20 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
 
     #### Option 1: PYTORCH CUSTOM FROM MASK. Automatically handles gradiant clipping ####
     # Create a mask which is the same size as the weights
-    custom_mask = torch.ones_like(layer.weight.data)    # Create a mask, 0 means prune, 1 means keep
-    for head in range(num_heads):
-        dim_from = head * head_dim
-        dim_to = dim_from + head_dim
-        custom_mask[dim_from:dim_to].mul_(head_mask[head])
+    # custom_mask = torch.ones_like(layer.weight.data)    # Create a mask, 0 means prune, 1 means keep
+    # for head in range(num_heads):
+    #     dim_from = head * head_dim
+    #     dim_to = dim_from + head_dim
+    #     custom_mask[dim_from:dim_to].mul_(head_mask[head])
 
-    prune.CustomFromMask.apply(layer, 'weight', custom_mask)    # Apply the mask to the layer
-    if HAS_BIAS:
-        custom_mask_bias = torch.ones_like(layer.bias.data)     # Create a mask, 0 means prune, 1 means keep
-        for head in range(num_heads):
-            dim_from = head * head_dim
-            dim_to = dim_from + head_dim
-            custom_mask_bias[dim_from:dim_to].mul_(head_mask[head])
-        prune.CustomFromMask.apply(layer, 'bias', custom_mask_bias)  # Apply the mask to the layer
+    # prune.CustomFromMask.apply(q, 'weight', custom_mask)    # Apply the mask to the layer
+    # if HAS_BIAS:
+    #     custom_mask_bias = torch.ones_like(layer.bias.data)     # Create a mask, 0 means prune, 1 means keep
+    #     for head in range(num_heads):
+    #         dim_from = head * head_dim
+    #         dim_to = dim_from + head_dim
+    #         custom_mask_bias[dim_from:dim_to].mul_(head_mask[head])
+    #     prune.CustomFromMask.apply(layer, 'bias', custom_mask_bias)  # Apply the mask to the layer
 
 
     #### Option 2: PRUNE MANUALLY. Handle gradiant clipping by yourself ####
@@ -159,10 +172,24 @@ def prune_attention(name: str, layer: nn.Module, ratio: float, embed_dim: int, n
     #         with torch.no_grad():
     #             head_bias.data.mul_(head_mask[head])
 
+    #### Option 3: REMOVE THE HEADS. ####
+    # This will cause a bug in the inference process (transformers 4.29.0). See https://github.com/huggingface/transformers/issues/19625#issuecomment-1296708659 for details.
+    # To solve this bug, follow this PR: https://github.com/huggingface/transformers/pull/20106/commits/1c036908365b9ea448498d5a9f63a89bb58b2aa2
+    prune_heads_index = prune_heads_index.tolist()
+    layer.prune_heads(prune_heads_index)
+
+    print(f'prune_heads_index: {prune_heads_index}')
+    # print(f'shape of q.weight: {layer.q.weight.shape}')
+
     # nonzero = layer.in_proj_weight.data.abs().clone().gt(0).float().cuda()      # Counting
     # total_nonzero = torch.sum(nonzero).int().item()         # Counting: number of remaining parameters after pruning
     # Code follows is only for counting. Bias is not considered
-    total_nonzero = layer.weight.nonzero().shape[0]         # Counting: number of remaining parameters after pruning
+
+    # a simple `q` does not work. Has to use `layer.q`
+    if TYPE_OF_MODEL == "t5":
+        total_nonzero = layer.q.weight.nonzero().shape[0] + layer.k.weight.nonzero().shape[0] + layer.v.weight.nonzero().shape[0] + layer.o.weight.nonzero().shape[0]
+    elif TYPE_OF_MODEL == "distilbert":
+        total_nonzero = layer.q_lin.weight.nonzero().shape[0] + layer.k_lin.weight.nonzero().shape[0] + layer.v_lin.weight.nonzero().shape[0] + layer.out_lin.weight.nonzero().shape[0]
     head_nonzero = head_mask.nonzero().shape[0]             # Counting: number of remaining heads after pruning
     print(f"{name}: pruned to {total_nonzero / total:.6f} ({ratio}). {head_nonzero} heads left.")  # Counting
 

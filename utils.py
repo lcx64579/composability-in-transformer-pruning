@@ -89,11 +89,8 @@ def type_of_t5_module(name: str, module: nn.Module) -> str:
         :return: type of module. "MultiheadAttention" or "Linear" or None.
     """
     # Attention. `.q`, `.k`, `.v`
-    if isinstance(module, nn.Linear) and any([x in name for x in [".q", ".k", ".v"]]):
+    if isinstance(module, t5.T5Attention):
         return "MultiheadAttention"
-    # Linear output project in Attention layer. `.o`
-    elif isinstance(module, nn.Linear) and ".o" in name:
-        return "Linear"
     # Linear in FFN. `.wi`, `.wo`
     elif isinstance(module, nn.Linear) and any([x in name for x in [".wi", ".wo"]]):
         return "Linear"

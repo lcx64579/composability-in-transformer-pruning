@@ -22,8 +22,10 @@ for parameter in model.parameters():
 
 for name, layer in model.named_modules():
     if type_of_module('t5', name, layer) == "MultiheadAttention":
-        total_zero_parameters += layer.weight.numel() - layer.weight.nonzero().size(0)
-        print(f'{name} has {layer.weight.numel()} parameters, {layer.weight.nonzero().size(0)} nonzero parameters, {layer.weight.numel() - layer.weight.nonzero().size(0)} zero parameters')
+        nonzero_parameters = layer.q.weight.nonzero().size(0) + layer.k.weight.nonzero().size(0) + layer.v.weight.nonzero().size(0) + layer.o.weight.nonzero().size(0)
+        layer_parameters = layer.q.weight.numel() + layer.k.weight.numel() + layer.v.weight.numel() + layer.o.weight.numel()
+        total_zero_parameters += layer_parameters - nonzero_parameters
+        print(f'{name} has {layer_parameters} parameters, {nonzero_parameters} nonzero parameters, {layer_parameters - nonzero_parameters} zero parameters')
     elif type_of_module('t5', name, layer) == "Linear":
         total_zero_parameters += layer.weight.numel() - layer.weight.nonzero().size(0)
         print(f'{name} has {layer.weight.numel()} parameters, {layer.weight.nonzero().size(0)} nonzero parameters, {layer.weight.numel() - layer.weight.nonzero().size(0)} zero parameters')

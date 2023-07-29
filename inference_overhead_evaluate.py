@@ -49,6 +49,7 @@ print(f'Memory footprint (Bytes): {memory_footprint}')
 sentence = "translate English to German: A group of people are standing in front of an auditorium."
 input_ids = tokenizer(sentence, return_tensors="pt").input_ids.to(device)
 times = []
+model.eval()
 # Warm up
 for i in range(100):
     model.generate(input_ids, max_new_tokens=100)

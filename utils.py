@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import transformers.models.t5.modeling_t5 as t5
+import transformers.models.distilbert.modeling_distilbert as distilbert
 
 
 def set_module(model: nn.Module, submodule_key: str, module: nn.Module) -> None:
@@ -105,11 +106,8 @@ def type_of_distilbert_module(name: str, module: nn.Module) -> str:
     or `.lin2`.
     """
     # Attention. `.q_lin`, `.k_lin`, `.v_lin`
-    if isinstance(module, nn.Linear) and any([x in name for x in [".q_lin", ".k_lin", ".v_lin"]]):
+    if isinstance(module, distilbert.MultiHeadSelfAttention):
         return "MultiheadAttention"
-    # Linear output project in Attention layer. `.out_lin`
-    elif isinstance(module, nn.Linear) and ".out_lin" in name:
-        return "Linear"
     # Linear in FFN. `.lin1`, `.lin2`
     elif isinstance(module, nn.Linear) and any([x in name for x in [".lin1", ".lin2"]]):
         return "Linear"

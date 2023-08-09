@@ -24,9 +24,23 @@ Contact me if you want to see the full thesis.
 >
 > DistilBERT is not performing good in my experiments, because it converges too fast. Not recommended to use.
 
-## Dependencies
+## Install Dependencies
 
-Huggingface's transformers, PyTorch, and torchtext are the basic requirements. Other dependencies such as numpy, matplotlib, etc. are also needed.
+Create a new virtual environment with conda/virtualenv to prevent breaking your default environment.
+
+e.g. miniconda:
+
+```bash
+# needs conda installed
+conda create -n composability python=3.9
+```
+
+Then, install all the dependencies using `requirements.txt`.
+
+```bash
+python -m pip install -r requirements.txt
+# or just `pip install -r requirements.txt` if your "pip" is the one you want
+```
 
 ## Usage
 
